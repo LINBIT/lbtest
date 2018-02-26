@@ -1,0 +1,20 @@
+#!/bin/sh
+
+start() {
+	echo "Starting rsyslog"
+	/usr/sbin/rsyslogd $SYSLOGD_OPTIONS
+}
+
+stop() {
+	echo "Stopping rsyslog"
+	[ -e /var/run/syslogd.pid  ] && kill -9 $(cat /var/run/syslogd.pid)
+	#killall rsyslogd
+}
+
+if [ "$1" = "rsyslog"  ]; then
+	[ "$2" = "start"  ] && start
+	[ "$2" = "stop"  ] && start
+	[ "$2" = "restart"  ] && { stop; start; }
+else
+	exec /usr/sbin/service.real "$@" || exit
+fi

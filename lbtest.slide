@@ -1,0 +1,180 @@
+lbtest
+Execute tests efficiently and concurrently in many VMs
+7 Mar 2018
+Tags: linbit, DRBD, testing
+
+Roland Kammerer
+roland.kammerer@linbit.com
+https://github.com/LINBIT/lbtest
+
+* Why?
+
+While using technologies like `docker` are tempting for
+software testing/CI in general, we want to test DRBD (kernel
+module) and therefore we require real VMs with a different
+set of distributions and various kernels per distribution.
+
+Our test suite contains a large set of tests, executing them
+one after another can easily take up to ~45min.
+
+* Framework
+
+The framework consists of two parts:
+
+- d2ch and ch2vm: These generate VM templates and start VMs based on these templates.
+- vmshed: This tool schedules a set of VMs and executes tests in it.
+
+* Prerequisites
+
+- `docker` images of the distributions to use
+- [[http://zfsonlinux.org/][zfs]]
+- NFS server
+- qemu
+
+* d2ch
+
+`d2ch` (docker to changeroot) is pretty simple. It does the following:
+
+- start a `docker` container based in the given image and tag
+- create a `zfs` data set
+- extract the container to that data set
+- create a snapshot _@rootfs_
+- remove the container
+
+We use that approach because we already have base images for
+all the distributions/kernels we build packages for.
+
+*Note:* This tool, like the rest, follows some internal naming conventions,
+and adds prefixes. So if you want to use it, adapt the script.
+
+* ch2vm
+
+`ch2vm` (chroot to VM) does all the work that is required to
+efficiently start VMs.
+
+Before it can be used, you need the following prerequisites:
+- A kernel image
+- An initrd
+- A kernel package
+- Packages required during test (e.g., drbd-utils, drbd9, the test suite...)
+
+Putting these requirements in place is shown on the next slide.
+
+* ch2vm - Static Packages
+
+For the kernel, the initrd, and the kernel package,
+follow the naming scheme. For "RHEL7" this might look like this:
+
+  ls -1 /tank/d9ts/kis/ | grep rhel7
+  dc-rhel7.0-amd64-3.10.0-693.17.1.el7.initrd
+  dc-rhel7.0-amd64-3.10.0-693.17.1.el7.linux
+  dc-rhel7.0-amd64-3.10.0-693.17.1.el7.rpm
+
+Downloading and generating these files can be done in a `docker` container.
+Generating an initrd for RHEL needs some extra work:
+
+- install `dracut-network` and `nfs-utils`
+- dracut --add nfs --add qemu --add qemu-net -f ./initrd 3.10.0-693.17.1.el7.x86_64 
+
+* ch2vm - Dynamic Packages
+
+In addition to the previously mentioned packages, you also
+need packages of the software that changes frequently (the
+software under test). These are placed like this:
+
+  ls /tank/d9ts/overlay/pkgs/
+  drbd  drbd9-tests  drbd-utils  exxe  logscan
+  # note the following directory hierarchy matching the kernel
+  # exactly one package per directory
+  # kernel packages:
+  root@lbtest:/tank/d9ts/overlay/pkgs/drbd/rhel7.0/amd64/3.10.0-693.17.1.el7# ls *.rpm
+  kmod-drbd-9.0.12_3.10.0_693.17.1-1.el7.x86_64.rpm
+  # user space:
+  root@lbtest:/tank/d9ts/overlay/pkgs/drbd-utils/rhel7.0/amd64# ls *.rpm
+  drbd-utils-9.2.2-1.el7.x86_64.rpm
+
+Obviously it is up to you to generate packages for all
+distribution/kernel flavors you want to test.
+
+* ch2vm - Starting a VM
+  ch2vm.sh rhel7.0 3.10.0-693.17.1.el7 23 "lvm;loaddrbd;sshd;shell"
+
+What happens here are multiple things:
+
+- check if there is a `zfs` snapshot that contains all the "static" packages. If not, a clone of _@rootfs_ is created and the static packages get installed. Then a _@static_ snapshot is created from that
+- check if there is `zfs` snapshot that contains all the "dynamic" packages. This is done by generating a hash-sum over all packages. If it does not exist, clone the _@static_ snapshot, install the dynamic packages and create a _@pkgs_ snapshot.
+- create a per VM clone from the _@pkgs_ snapshot. Export via NFS + qemu/kvm boot
+- start a VM based on the distribution and kernel, with host name "vm-23" and the payloads "lvm;loaddrbd;sshd;shell"
+
+Payloads are explained on the next slide.
+
+* ch2vm - Payloads
+
+For DRBD tests we favor a VM setup that is as controlled/fast as possible.
+Therefore we do *not* boot a full VM and start all daemons.
+We start our own `init` that takes a list of "payloads".
+
+- lvm: Creates a 1TB (sparse) LVM VG "scratch"
+- loaddrbd: Loads the drbd modules + dependencies
+- sshd: sshd in background
+- shell: start an interactive shell. Implicit if no payload. Usually you want that as the last payload in the list, because the VM shuts off after the last payload got executed
+
+*Note:* In order to allow `ssh` connections, add these files:
+
+  ls scripts/ssh
+  authorized_keys  id_rsa  id_rsa.pub
+
+"id_rsa" is used as the root key for sshd.
+
+* ch2vm - d9ts payload
+
+The "d9ts" payload takes another set of options:
+
+- leader: if this is the controller node that executes tests/collects logs.
+- shutdownnodes: controller tries to shutdown the test nodes
+- shutdownself: the controller tries to shutdown itself
+- tests: list of tests to execute
+- undertest: list of nodes that are under test
+
+A controller execution could look like this:
+
+  ch2vm.sh rhel7.0 3.10.0-693.17.1.el7 23 "d9ts:leader:tests=connect:undertest=vm-24,vm-25;shell"
+
+The shutdown payloads should not be used, `vmshed` provides
+a much better way to execute multiple tests concurrently.
+
+* vmshed (yes shed, but it started as a typo 😝)
+
+`vmshed` is used to execute multiple tests in a set of VMs. It has two input files:
+
+  cat vms.json
+  { "distribution":"ubuntu-xenial", "kernel": "4.4.0-112" }
+  { "distribution":"rhel6.0",       "kernel": "2.6.32-696.el6" }
+  { "distribution":"rhel7.0",       "kernel": "3.10.0-693.17.1.el7" }
+
+  cat tests.json
+  {"vms":2, "tests": ["add-connect-delete", ..., "switch-primaries", "verify"]}
+  {"vms":3, "tests": ["diskless", "outdate", "pre-existing-data", "quorum"]}
+  {"vms":5, "tests": ["connect", "fencing", ..., "stress-connect-and-2pc", "switch-primaries"]}
+
+`vms.json` is obvious, `tests.json` is more interesting:
+
+- In the above example there are 3 "test groups".
+- Tests in a test group are executed concurrently
+- Test groups are *not* executed concurrently. So tests in the "vms:3" group start after the ones in "vms:2" are done
+
+* vmshed (2)
+
+- The maximum number of VMs is specified via the `-nvms` flag, first VM via `-startvm`.
+- There are flags to fail fast after the first failed test (`-failtest`), or after at least one failed in the test group (`-failgroup`).
+- There are also additional flags to alter various timeouts.
+- `vmshed` assigns a random distribution/kernel from `vms.json` to every VM.
+- Every instance of a VM that is started via "ch2vm" is executed via `systemd-run`.  This makes it easy to cleanly terminate all processes started by ch2vm.
+
+Using this approach and 16 VMs concurrently, we can execute the test suite in ~8min.
+
+* Future work
+
+- Allow traditional boots. There is already a pseudo "systemd" payload which 'exec's systemd, but this would require more work.
+- Add other test suites (LINSTOR is an obvious candidate). The environment feels flexible enough, this should be easy.
+- Maybe generalize this framework a bit more. While it is certainly useful for someone working on such a thing, it would be nice to get rid of LINBIT specifica (naming of containers, which packages to include in the static package part,...). Don't expect that to happen, but patches welcome... ;-)

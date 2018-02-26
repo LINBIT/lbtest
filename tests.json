@@ -1,0 +1,2 @@
+{"vms":2, "tests": ["connect", "add-connect-delete"]}
+{"vms":3, "tests": ["connect", "add-connect-delete"]}

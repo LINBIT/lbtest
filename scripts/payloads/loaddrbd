@@ -1,0 +1,5 @@
+#!/bin/sh
+
+modprobe libcrc32c
+modprobe drbd
+modprobe drbd_transport_tcp

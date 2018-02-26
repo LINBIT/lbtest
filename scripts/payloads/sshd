@@ -1,0 +1,7 @@
+#!/bin/sh
+
+useradd -r sshd
+mkdir /var/run/sshd
+[ $LB_DIST = "rhel6.0" ] && SSH_ROOT="without-password" || SSH_ROOT="prohibit-password"
+echo "PermitRootLogin $SSH_ROOT" >> /etc/ssh/sshd_config
+/usr/sbin/sshd

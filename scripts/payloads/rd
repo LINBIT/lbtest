@@ -1,0 +1,15 @@
+#!/bin/sh
+
+modprobe rd rd_nr=2 rd_size=$((4*1024))
+
+# Setup a few block devices; mostly dm-zero, but with a bit of /dev/ramX for "persistent" DRBD and LVM data.
+ONE_MB=$(( 2 * 1024  ))
+# --noudevsync --noudevrules # but we now start udevd and are good
+dmsetup table | grep ^zero-1gb: && dmsetup remove zero-1gb
+SIZE=$(( 2 * 1 * 1024 * 1024         )) # 1 GB
+echo "
+						0	$ONE_MB linear /dev/ram1 0
+				$ONE_MB	$SIZE   zero
+$(($SIZE + $ONE_MB))	$ONE_MB linear /dev/ram1 $ONE_MB
+" | dmsetup create zero-1gb
+dmsetup mknodes

@@ -1,0 +1,57 @@
+#!/bin/bash
+
+ARGS=$(echo $1 | tr ":" "\n")
+
+for o in $ARGS; do
+	case "$o" in
+		leader) leader="true" ;;
+		shutdownnodes) shutdownnodes="true" ;;
+		shutdownself) shutdownself="true" ;;
+		tests=*) export $o ;;
+		undertest=*) export $o ;;
+	esac
+done
+
+[ -z $leader ] && { echo "Waiting for the leader... bye"; exit 0; }
+
+SECONDS=0
+echo "Pinging nodes under test"
+while : ; do
+
+	PING_SUCC="yes"
+	for n in $(echo $undertest | tr "," "\n"); do
+		echo "SSH pinging $n at $(date)"
+		#ping -c 1 -w 1 $n || { PING_SUCC="no"; break; }
+		ssh -o ServerAliveInterval=5 -o ServerAliveCountMax=0 -o ConnectTimeout=1 \
+			-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $n true || { PING_SUCC="no"; break; }
+	done
+
+	[ $PING_SUCC = "yes" ] && break
+	[ $SECONDS -lt 90 ] || { echo "Giving up ssh pinging after $SECONDS"; exit 1; }
+
+	sleep 1
+done
+echo "Ping was successful"
+
+RET=0
+cd /drbd9-tests/tests || exit 1
+for t in $(echo $tests | tr "," "\n"); do
+# potentially dangerous, but we are in a VM anyways ;-)
+	./$t $(echo $undertest | tr "," " ")
+	rt=$?
+	[ $rt = 0 ] && echo "Test $t: SUCCESS" || echo "Test $t: FAILED"
+	[ $RET = 0 ] && RET=$rt
+	sync
+done
+
+if [ -n "$shutdownnodes" ]; then
+	echo "Running shutdown sequence"
+	for n in $(echo $undertest | tr "," "\n"); do
+		(ssh -o ServerAliveInterval=5 -o ServerAliveCountMax=1 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $n /usr/local/bin/shutdown)&
+	done
+	sleep 5 # give the ssh-subshells some time...
+fi
+[ -n "$shutdownself" ] && /usr/local/bin/shutdown
+
+echo "d9ts returning: $RET"
+exit $RET
