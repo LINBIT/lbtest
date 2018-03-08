@@ -124,7 +124,9 @@ if ! zfs list -t snapshot "$STATICSNAP"; then
 	fi
 	case "$FORMAT" in
 		"rpm")
-			chroot "$STATICMNT" /bin/sh -c "yum install -y e2fsprogs kmod iptables fio lvm2 rsyslog openssh-server"
+			RPMPKG="e2fsprogs kmod iptables fio lvm2 rsyslog openssh-server"
+			[ "$DISTNAME" = "rhel6.0" ] && RPMPKG="$RPMPKG python-argparse"
+			chroot "$STATICMNT" /bin/sh -c "yum install -y $RPMPKG"
 			# PS1="IN $STATICMNT# " chroot $STATICMNT /bin/bash -l -i
 			;;
 		"deb")
