@@ -21,5 +21,6 @@ create_vg() {
 # create vg
 # not in /tmp, because that is a limited-size tmpfs
 mkdir -p /run/lvm && /sbin/lvmetad
+[ "$LB_DIST" = "rhel6.0" ] && { modprobe dm-mod; sed -i "s/use_lvmetad/use_lvmetad=1 #/" /etc/lvm/lvm.conf; }
 modprobe loop
 create_vg scratch /var/lib/my-vg
