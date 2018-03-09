@@ -16,6 +16,7 @@ cat /history.txt
 for o in $(cat /proc/cmdline) ; do
 	case "$o" in
 		LB_DIST=*) export $o ;;
+		LB_IP=*) export $o ;;
 		LB_KERNEL=*) export $o ;;
 		LB_PAYLOADS=*) export $o ;;
 	esac

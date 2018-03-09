@@ -56,11 +56,11 @@ NFSOPTS="rsize=16384,wsize=16384,timeo=6,retrans=30,nolock"
 # keep NIF on xenial empty
 case "$DISTNAME" in
 	ubuntu-*|debian-*) FORMAT="deb"; INST_UTIL="dpkg -i"; INST_UTILOPTS="--force-overwrite"; KPREFIX="drbd-module-$LB_KERNEL"; PEER=$NFSSERVER; APPEND="root=/dev/nfs nfsroot=$NFSSERVER:$PERVMROOTMNT,$NFSOPTS";;
-	rhel*) FORMAT="rpm"; INST_UTIL="yum install -y"; KPREFIX="kmod-drbd"; NIF="ethbootnet"; APPEND="selinux=0 enforce=0 ifname=$NIF:$MAC bootdev=$NIF root=nfs:$NFSSERVER:$PERVMROOTMNT:${NFSOPTS},vers=3";;
+	rhel*) FORMAT="rpm"; INST_UTIL="yum install -y"; KPREFIX="kmod-drbd"; NIF="eth0"; APPEND="selinux=0 enforce=0 ifname=$NIF:$MAC bootdev=$NIF root=nfs:$NFSSERVER:$PERVMROOTMNT:${NFSOPTS},vers=3";;
 	sles*) FORMAT="rpm"; INST_UTIL="rpm -i"; KPREFIX="drbd-kmp-default";;
 	*) die "$DISTNAME is not valid/unknown";;
 esac
-APPEND="$APPEND ip=$IP:$PEER:$GW:$NETMASK:$VMNAME:$NIF:off rootfstype=nfs rw console=ttyS0 LB_DIST=$DISTNAME LB_KERNEL=$KERN_INITRAMFS LB_PAYLOADS=$PAYLOADS init=/sbin/init.sh"
+APPEND="$APPEND ip=$IP:$PEER:$GW:$NETMASK:$VMNAME:$NIF:off rootfstype=nfs rw console=ttyS0 LB_DIST=$DISTNAME LB_KERNEL=$KERN_INITRAMFS LB_PAYLOADS=$PAYLOADS LB_IP=$IP net.ifnames=0 init=/sbin/init.sh"
 
 INITRD=$BASEMNT/kis/${ZFSDISTNAME}-${KERN_INITRAMFS}.initrd
 LINUX=$BASEMNT/kis/${ZFSDISTNAME}-${KERN_INITRAMFS}.linux

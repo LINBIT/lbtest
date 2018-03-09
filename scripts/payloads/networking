@@ -1,0 +1,1 @@
+ip addr add dev eth0 label eth0:1 192.168.70.$(echo $LB_IP | cut -f4 -d.)/24
