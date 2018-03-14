@@ -31,6 +31,7 @@ echo "### STARTING PAYLOADS ###"
 echo "#########################"
 for p in $(echo $LB_PAYLOADS | tr ";" "\n"); do
 	[ "$p" = "none" ] && continue
+	[ "$p" = "resume" ] && { touch /.resume; continue; }
 	[ "$p" = "systemd" ] && { echo "root" | passwd --stdin "root"; exec /lib/systemd/systemd; }
 	x=(${p/:/ })
 	p=${x[0]}

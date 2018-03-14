@@ -4,12 +4,16 @@ create_vg() {
 	VGname=$1
 	VGpath=$2
 
-	rm -f "$VGpath" # new file, so that it's no longer shared for sure.
-	if [ ! -f "$VGpath"  ]; then
-		truncate --size 1T "$VGpath"
+	if [ ! -f /.resume ]; then
+		rm -f "$VGpath" # new file, so that it's no longer shared for sure.
+		if [ ! -f "$VGpath"  ]; then
+			truncate --size 1T "$VGpath"
+		fi
 	fi
+
 	D=`losetup --find`
 	losetup $D "$VGpath"
+	udevadm settle -t 10 -E $D
 	vgscan
 	if ! vgs | grep "$VGname"; then
 		pvcreate $D

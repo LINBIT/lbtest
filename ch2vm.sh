@@ -107,61 +107,67 @@ gen_uuid() {
 	cat /proc/sys/kernel/random/uuid
 }
 
-(
-flock -w 600 9 || die "flock failed/timeout"
-# does the snapshot containing the kernel-image (for .ko deps) exist?
-if ! zfs list -t snapshot "$STATICSNAP"; then
-	echo "Creating snapshot containing kernel image (and 'non-volatile' packages)"
-	zfs clone "$CHROOTSNAP" "$STATICZFS"
-	cp "$LINUXPKG" "${STATICMNT}/"
-	echo "$(gen_uuid) - KERNEL $KERN_INITRAMFS" >> "${STATICMNT}/history.txt"
-	mount --bind /proc "${STATICMNT}/proc"
-	mount --bind /dev "${STATICMNT}/dev"
-	chroot "$STATICMNT" /bin/sh -c "$INST_UTIL /$LINUXPKGNAME; rm -f /$LINUXPKGNAME"
-	if [ -d "$EXTRAPKGS" ]; then
-		cp "$EXTRAPKGS"/*.${FORMAT} "$STATICMNT"/
-		chroot "$STATICMNT" /bin/sh -c "$INST_UTIL /*.${FORMAT}; rm -f /*.${FORMAT}"
+create_vm_base() {
+	echo "Creating VM Base"
+	(
+	flock -w 600 9 || die "flock failed/timeout"
+	# does the snapshot containing the kernel-image (for .ko deps) exist?
+	if ! zfs list -t snapshot "$STATICSNAP"; then
+		echo "Creating snapshot containing kernel image (and 'non-volatile' packages)"
+		zfs clone "$CHROOTSNAP" "$STATICZFS"
+		cp "$LINUXPKG" "${STATICMNT}/"
+		echo "$(gen_uuid) - KERNEL $KERN_INITRAMFS" >> "${STATICMNT}/history.txt"
+		mount --bind /proc "${STATICMNT}/proc"
+		mount --bind /dev "${STATICMNT}/dev"
+		chroot "$STATICMNT" /bin/sh -c "$INST_UTIL /$LINUXPKGNAME; rm -f /$LINUXPKGNAME"
+		if [ -d "$EXTRAPKGS" ]; then
+			cp "$EXTRAPKGS"/*.${FORMAT} "$STATICMNT"/
+			chroot "$STATICMNT" /bin/sh -c "$INST_UTIL /*.${FORMAT}; rm -f /*.${FORMAT}"
+		fi
+		case "$FORMAT" in
+			"rpm")
+				RPMPKG="e2fsprogs kmod iptables fio lvm2 rsyslog openssh-server"
+				[ "$DISTNAME" = "rhel6.0" ] && RPMPKG="$RPMPKG python-argparse"
+				chroot "$STATICMNT" /bin/sh -c "yum install -y $RPMPKG"
+				# PS1="IN $STATICMNT# " chroot $STATICMNT /bin/bash -l -i
+				;;
+			"deb")
+				chroot "$STATICMNT" /bin/sh -c "apt -y update && apt -y install rsyslog openssh-server iputils-ping kmod fio iptables thin-provisioning-tools"
+				chroot "$STATICMNT" /bin/sh -c "apt -y install vim-nox";
+				[ -n "$INSTALLVIM" ] && chroot "$STATICMNT" /bin/sh -c "apt -y install vim-nox";
+				;;
+		esac
+		umount "${STATICMNT}/proc"
+		umount "${STATICMNT}/dev"
+		zfs umount "$STATICZFS"
+		sync
+		zfs snapshot "$STATICSNAP"
 	fi
-	case "$FORMAT" in
-		"rpm")
-			RPMPKG="e2fsprogs kmod iptables fio lvm2 rsyslog openssh-server"
-			[ "$DISTNAME" = "rhel6.0" ] && RPMPKG="$RPMPKG python-argparse"
-			chroot "$STATICMNT" /bin/sh -c "yum install -y $RPMPKG"
-			# PS1="IN $STATICMNT# " chroot $STATICMNT /bin/bash -l -i
-			;;
-		"deb")
-			chroot "$STATICMNT" /bin/sh -c "apt -y update && apt -y install rsyslog openssh-server iputils-ping kmod fio iptables thin-provisioning-tools"
-			chroot "$STATICMNT" /bin/sh -c "apt -y install vim-nox";
-			[ -n "$INSTALLVIM" ] && chroot "$STATICMNT" /bin/sh -c "apt -y install vim-nox";
-			;;
-	esac
-	umount "${STATICMNT}/proc"
-	umount "${STATICMNT}/dev"
-	zfs umount "$STATICZFS"
-	sync
-	zfs snapshot "$STATICSNAP"
-fi
 
-# this builds on the STATICSNAP, using a second lock does not really make sense here
-if ! zfs list -t snapshot "$PKGSNAP"; then
-	echo "Creating snapshot containing volatile packages (drbd9, utils, test suite) image"
-	zfs clone "$STATICSNAP" "$PKGZFS"
-	cp "$UTILSPKG" "$KERNELPKG" "$EXXEPKG" "$LOGSCANPKG" "$TESTSPKG" "${PKGMNT}/"
-	echo "$(gen_uuid) - PKGS $MD5OVERALL" >> "${PKGMNT}/history.txt"
-	mount --bind /proc "${PKGMNT}/proc"
-	mount --bind /dev  "${PKGMNT}/dev"
-	chroot "$PKGMNT" /bin/sh -c "no_initramfs=1 $INST_UTIL /*.${FORMAT}; rm -f /*.${FORMAT}"
-	chroot "$PKGMNT" /bin/sh -c "tar xvf /drbd9-tests.tar.gz && cd /drbd9-tests && make && make install; rm -f /drbd9-tests.tar.gz"
-	# PS1="IN $PKGMNT# " chroot $PKGMNT /bin/bash -l -i
-	umount "${PKGMNT}/proc"
-	umount "${PKGMNT}/dev"
-	zfs umount "$PKGZFS"
-	sync
-	zfs snapshot "$PKGSNAP"
-fi
-) 9> /var/lock/"$DISTNAME"-"$KERN_INITRAMFS".lock
+	# this builds on the STATICSNAP, using a second lock does not really make sense here
+	if ! zfs list -t snapshot "$PKGSNAP"; then
+		echo "Creating snapshot containing volatile packages (drbd9, utils, test suite) image"
+		zfs clone "$STATICSNAP" "$PKGZFS"
+		cp "$UTILSPKG" "$KERNELPKG" "$EXXEPKG" "$LOGSCANPKG" "$TESTSPKG" "${PKGMNT}/"
+		echo "$(gen_uuid) - PKGS $MD5OVERALL" >> "${PKGMNT}/history.txt"
+		mount --bind /proc "${PKGMNT}/proc"
+		mount --bind /dev  "${PKGMNT}/dev"
+		chroot "$PKGMNT" /bin/sh -c "no_initramfs=1 $INST_UTIL /*.${FORMAT}; rm -f /*.${FORMAT}"
+		chroot "$PKGMNT" /bin/sh -c "tar xvf /drbd9-tests.tar.gz && cd /drbd9-tests && make && make install; rm -f /drbd9-tests.tar.gz"
+		# PS1="IN $PKGMNT# " chroot $PKGMNT /bin/bash -l -i
+		umount "${PKGMNT}/proc"
+		umount "${PKGMNT}/dev"
+		zfs umount "$PKGZFS"
+		sync
+		zfs snapshot "$PKGSNAP"
+	fi
+	) 9> /var/lock/"$DISTNAME"-"$KERN_INITRAMFS".lock
 
-zfs clone "$PKGSNAP" "$PERVMROOTZFS" || die "clone $PKGSNAP $PERVMROOTZFS did not work"
+	zfs clone "$PKGSNAP" "$PERVMROOTZFS" || die "clone $PKGSNAP $PERVMROOTZFS did not work"
+}
+
+[ -f "${PERVMROOTMNT}/.resume" ] || create_vm_base
+
 DATE=$(date +%F_%s)
 zfs set aux:lastused="$DATE" "$PKGSNAP"
 # use lastused=$(zfs get -o value -H aux:lastused $PKGSNAP)
@@ -227,11 +233,13 @@ qemu-system-x86_64 \
 	-kernel "$LINUX" -initrd "$INITRD" -append "$APPEND"
 )
 
-zfs unshare "$PERVMROOTZFS"
-zfs set sharenfs=off "$PERVMROOTZFS"
-SECONDS=0
-if ! zfs destroy "$PERVMROOTZFS" ; then
-	echo 0 > /proc/fs/nfsd/threads
-	while sleep 1; do zfs destroy -v "$PERVMROOTZFS" && break; done
-	echo 20 > /proc/fs/nfsd/threads
+if [ ! -f "${PERVMROOTMNT}/.resume" ]; then
+	zfs unshare "$PERVMROOTZFS"
+	zfs set sharenfs=off "$PERVMROOTZFS"
+	SECONDS=0
+	if ! zfs destroy "$PERVMROOTZFS" ; then
+		echo 0 > /proc/fs/nfsd/threads
+		while sleep 1; do zfs destroy -v "$PERVMROOTZFS" && break; done
+		echo 20 > /proc/fs/nfsd/threads
+	fi
 fi
