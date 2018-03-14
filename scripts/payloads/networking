@@ -1,1 +1,6 @@
 ip addr add dev eth0 label eth0:1 192.168.70.$(echo $LB_IP | cut -f4 -d.)/24
+if ! grep -q 127.0.0.1 /etc/hosts; then
+	echo "127.0.0.1 localhost" >> /etc/hosts
+	ip addr add 127.0.0.1/8 dev lo
+	ip link set lo up
+fi
