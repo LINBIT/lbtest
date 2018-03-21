@@ -5,6 +5,9 @@ die() {
 	exit 1
 }
 
+NEEDS_CLEANUP=no
+SUICIDE=no
+
 ARGC=$#
 if [[ $ARGC -lt 3 || $ARGC -gt 4 ]]; then die 'dist kernel vmnr "[payload1;payload2;...]"'; fi
 
@@ -107,8 +110,29 @@ gen_uuid() {
 	cat /proc/sys/kernel/random/uuid
 }
 
+clean_up() {
+	[ -f "${PERVMROOTMNT}/.resume" ] && NEEDS_CLEANUP=no
+
+	if [ "$NEEDS_CLEANUP" = "yes" ]; then
+		zfs unshare "$PERVMROOTZFS"
+		zfs set sharenfs=off "$PERVMROOTZFS"
+		SECONDS=0
+		if ! zfs destroy "$PERVMROOTZFS" ; then
+			echo 0 > /proc/fs/nfsd/threads
+			while sleep 1; do zfs destroy -v "$PERVMROOTZFS" && break; done
+			echo 20 > /proc/fs/nfsd/threads
+		fi
+	fi
+}
+
+got_sig() {
+	SUICIDE=yes
+}
+
 create_vm_base() {
 	echo "Creating VM Base"
+	trap got_sig TERM HUP  # this is the "critical section". from here one we don't want to be interruped
+	NEEDS_CLEANUP=yes
 	(
 	flock -w 600 9 || die "flock failed/timeout"
 	# does the snapshot containing the kernel-image (for .ko deps) exist?
@@ -166,6 +190,8 @@ create_vm_base() {
 	zfs clone "$PKGSNAP" "$PERVMROOTZFS" || die "clone $PKGSNAP $PERVMROOTZFS did not work"
 }
 
+trap clean_up EXIT
+
 [ -f "${PERVMROOTMNT}/.resume" ] || create_vm_base
 
 DATE=$(date +%F_%s)
@@ -210,7 +236,8 @@ for i in $(seq 1 54); do
 	echo "${IPBASE}.$((i + IPOFFSET)) vm-$i"  >> "${PERVMROOTMNT}/etc/hosts"
 done
 
-trap : TERM HUP
+[ "$SUICIDE" = "yes" ] && exit 1
+
 (
 trap - TERM HUP
 qemu-system-x86_64 \
@@ -232,14 +259,3 @@ qemu-system-x86_64 \
 	\
 	-kernel "$LINUX" -initrd "$INITRD" -append "$APPEND"
 )
-
-if [ ! -f "${PERVMROOTMNT}/.resume" ]; then
-	zfs unshare "$PERVMROOTZFS"
-	zfs set sharenfs=off "$PERVMROOTZFS"
-	SECONDS=0
-	if ! zfs destroy "$PERVMROOTZFS" ; then
-		echo 0 > /proc/fs/nfsd/threads
-		while sleep 1; do zfs destroy -v "$PERVMROOTZFS" && break; done
-		echo 20 > /proc/fs/nfsd/threads
-	fi
-fi
