@@ -145,7 +145,7 @@ create_vm_base() {
 		mount --bind /dev "${STATICMNT}/dev"
 		chroot "$STATICMNT" /bin/sh -c "$INST_UTIL /$LINUXPKGNAME; rm -f /$LINUXPKGNAME"
 		if [ -d "$EXTRAPKGS" ]; then
-			cp "$EXTRAPKGS"/*.${FORMAT} "$STATICMNT"/
+			cp "$EXTRAPKGS"/*.${FORMAT} "${STATICMNT}/"
 			chroot "$STATICMNT" /bin/sh -c "$INST_UTIL /*.${FORMAT}; rm -f /*.${FORMAT}"
 		fi
 		case "$FORMAT" in
@@ -202,12 +202,12 @@ zfs set sharenfs=on "$PERVMROOTZFS"
 
 ### PER VM SETUP
 # copying this might look weird, but I want to keep it in this repo...
-cp ./scripts/init.sh "$PERVMROOTMNT"/sbin/init.sh
-chmod +x ./scripts/init.sh "$PERVMROOTMNT"/sbin/init.sh
-cp ./scripts/ssh/id_rsa "$PERVMROOTMNT"/etc/ssh/ssh_host_rsa_key
+cp ./scripts/init.sh "${PERVMROOTMNT}/sbin/init.sh"
+chmod +x ./scripts/init.sh "${PERVMROOTMNT}/sbin/init.sh"
+cp ./scripts/ssh/id_rsa "${PERVMROOTMNT}/etc/ssh/ssh_host_rsa_key"
 
-mkdir -p "$PERVMROOTMNT"/root/.ssh
-chmod 700 "$PERVMROOTMNT"/root/.ssh
+mkdir -p "${PERVMROOTMNT}/root/.ssh"
+chmod 700 "${PERVMROOTMNT}/root/.ssh"
 cp ./scripts/ssh/id_rsa{,.pub} "${PERVMROOTMNT}/root/.ssh/"
 cat ./scripts/ssh/id_rsa.pub > "${PERVMROOTMNT}/root/.ssh/authorized_keys"
 cat ./scripts/ssh/authorized_keys >> "${PERVMROOTMNT}/root/.ssh/authorized_keys"
@@ -226,7 +226,7 @@ chmod +x "${PERVMROOTMNT}/usr/local/bin/shutdown"
 
 if [ "$DISTNAME" = "rhel7.0" ]; then
 	mv "${PERVMROOTMNT}"/usr/sbin/service{,.real}
-	cp ./scripts/service.fake $PERVMROOTMNT/usr/sbin/service
+	cp ./scripts/service.fake "${PERVMROOTMNT}/usr/sbin/service"
 	chmod +x "${PERVMROOTMNT}/usr/sbin/service"
 fi
 
