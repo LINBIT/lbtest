@@ -34,9 +34,13 @@ for p in $(echo $LB_PAYLOADS | tr ";" "\n"); do
 	[ "$p" = "none" ] && continue
 	[ "$p" = "resume" ] && { touch /.resume; continue; }
 	[ "$p" = "systemd" ] && { echo "root" | passwd --stdin "root"; exec /lib/systemd/systemd; }
+
 	x=(${p/:/ })
 	p=${x[0]}
 	args=${x[1]}
+
+	[ "$p" = "jenkins" ] && continue
+
 	echo "# Starting: $p"
 	sh /payloads/$p $args
 done

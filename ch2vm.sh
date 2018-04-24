@@ -111,8 +111,26 @@ gen_uuid() {
 }
 
 clean_up() {
-	[ -f "${PERVMROOTMNT}/.resume" ] && NEEDS_CLEANUP=no
+	JENKINSARGS=""
+	for o in $(echo $PAYLOADS | tr ";" "\n"); do
+		[[ $o == jenkins* ]] && { JENKINSARGS=$(echo "$o" | cut -d':' -f2-); break; }
+	done
 
+	jdir=""
+	jtest=""
+	for o in $(echo "$JENKINSARGS" | tr ":" "\n"); do
+		case "$o" in
+			jdir=*) export $o ;;
+			jtest=*) export $o ;;
+		esac
+	done
+
+	if [ -n "$jdir" ] && [ -n "$jtest" ]; then
+		LOGDIR="${PERVMROOTMNT}/drbd9-tests/tests/log/${jtest}-latest"
+		(cd "$LOGDIR" && mkdir -p "$jdir" && tar -czf "${jdir}/logs.tar.gz" . )
+	fi
+
+	[ -f "${PERVMROOTMNT}/.resume" ] && NEEDS_CLEANUP=no
 	if [ "$NEEDS_CLEANUP" = "yes" ]; then
 		zfs unshare "$PERVMROOTZFS"
 		zfs set sharenfs=off "$PERVMROOTZFS"
