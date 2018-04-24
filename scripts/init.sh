@@ -6,6 +6,7 @@ export PATH=/usr/local/bin:/usr/sbin:$PATH
 # yes, we assume that we only have modern distributions...
 # otherwise things like LVM gets nasty
 /lib/systemd/systemd-udevd --daemon || /sbin/udevd --daemon
+udevadm trigger
 
 echo "##################"
 echo "### VM HISTORY ###"

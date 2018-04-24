@@ -241,11 +241,11 @@ done
 (
 trap - TERM HUP
 qemu-system-x86_64 \
+	-name "$VMNAME" -machine accel=kvm:tcg -enable-kvm \
+	\
 	-m 768M \
 	-display none \
 	-nodefconfig -no-user-config -nodefaults \
-	\
-	-name "$VMNAME" -machine accel=kvm:tcg -enable-kvm \
 	\
 	-device virtio-rng-pci \
 	\

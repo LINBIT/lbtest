@@ -1,2 +1,3 @@
+export HOME=/root
 [ $LB_DIST = rhel6.0 ] && sh
-setsid -c /bin/bash -i -l < /dev/ttyS0 > /dev/ttyS0 2>&1
+( cd $HOME ; exec setsid -c /bin/bash -i -l < /dev/ttyS0 > /dev/ttyS0 2>&1 )
