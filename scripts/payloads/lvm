@@ -1,23 +1,37 @@
-#!/bin/sh
+#!/bin/bash
+
+blockdevice=""
+
+ARGS=$(echo $1 | tr ":" "\n")
+for o in $ARGS; do
+	case "$o" in
+		bd=*) blockdevice="true" ;;
+	esac
+done
 
 create_vg() {
 	VGname=$1
 	VGpath=$2
+	backing=$3
 
-	if [ ! -f /.resume ]; then
+	if [ ! -f /.resume ] && [ "$backing" = "file" ]; then
 		rm -f "$VGpath" # new file, so that it's no longer shared for sure.
 		if [ ! -f "$VGpath"  ]; then
 			truncate --size 1T "$VGpath"
 		fi
 	fi
 
-	D=`losetup --find`
-	losetup $D "$VGpath"
-	udevadm settle -t 10 -E $D
+	if [ "$backing" = "file" ]; then
+		D=$(losetup --find)
+		losetup "$D" "$VGpath"
+	else
+		D=$VGpath
+	fi
+	udevadm settle -t 10 -E "$D"
 	vgscan
 	if ! vgs | grep "$VGname"; then
-		pvcreate $D
-		vgcreate $VGname $D --physicalextentsize=8k
+		pvcreate "$D"
+		vgcreate "$VGname" "$D" # --physicalextentsize=8k
 	fi
 	vgchange -ay
 }
@@ -26,5 +40,11 @@ create_vg() {
 # not in /tmp, because that is a limited-size tmpfs
 [ "$LB_DIST" = "rhel6.0" ] && { modprobe dm-mod; sed -i "s/use_lvmetad/use_lvmetad=1 #/" /etc/lvm/lvm.conf; }
 mkdir -p /run/lvm && /sbin/lvmetad
-modprobe loop
-create_vg scratch /var/lib/my-vg
+if [ -z "$blockdevice" ]; then
+	echo "Creating LV from loopback file"
+	modprobe loop
+	create_vg scratch /var/lib/my-vg file
+else
+	echo "Creating LV from blockdevice"
+	create_vg scratch /dev/sda blockdevice
+fi

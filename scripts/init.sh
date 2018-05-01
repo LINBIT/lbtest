@@ -41,7 +41,7 @@ for p in $(echo $LB_PAYLOADS | tr ";" "\n"); do
 
 	[ "$p" = "jenkins" ] && continue
 
-	echo "# Starting: $p"
+	echo "# Starting: $p with $args"
 	sh /payloads/$p $args
 done
 

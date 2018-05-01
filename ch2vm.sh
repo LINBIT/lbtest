@@ -50,6 +50,19 @@ PERVMROOTZFS=$BASEZFS/$VMNAME
 PERVMROOTMNT=/${PERVMROOTZFS}
 
 [ "$ARGC" = 4 ] && PAYLOADS=$4 || PAYLOADS="shell"
+BLKNAME="blk-${VMNAME}"
+BLKZFS="${BASEZFS}/${BLKNAME}"
+BLKOPT=""
+BLKSIZE=""
+BLKTHIN=""
+for o in $(echo $PAYLOADS | tr ";" "\n"); do
+	BLKTHIN=$(echo "$o" | grep "^lvm" | grep -o "thin")
+	[ -n "$BLKTHIN" ] && BLKTHIN="-s"
+	BLKSIZE=$(echo "$o" | grep "^lvm" | grep -o "bd=.*" | cut -f1 -d':' | cut -f2 -d'=')
+	[ -n "$BLKSIZE" ] && break
+done
+[ -n "$BLKSIZE" ] && BLKOPT="-drive format=raw,discard=unmap,file=/dev/zvol/${BLKZFS}"
+
 # nolock? local_lock=all?
 NFSOPTS="rsize=16384,wsize=16384,timeo=6,retrans=30,nolock"
 
@@ -132,6 +145,7 @@ clean_up() {
 
 	[ -f "${PERVMROOTMNT}/.resume" ] && NEEDS_CLEANUP=no
 	if [ "$NEEDS_CLEANUP" = "yes" ]; then
+		[ -n "$BLKOPT" ] && zfs destroy "$BLKZFS"
 		zfs unshare "$PERVMROOTZFS"
 		zfs set sharenfs=off "$PERVMROOTZFS"
 		SECONDS=0
@@ -206,6 +220,9 @@ create_vm_base() {
 	) 9> /var/lock/"$DISTNAME"-"$KERN_INITRAMFS".lock
 
 	zfs clone "$PKGSNAP" "$PERVMROOTZFS" || die "clone $PKGSNAP $PERVMROOTZFS did not work"
+	if [ -n "$BLKOPT" ]; then
+		zfs create -b $(( 4 * 2**10  )) -V "$BLKSIZE" "$BLKZFS" $BLKTHIN || die "could not create zfs block device $BLKZFS"
+	fi
 }
 
 trap clean_up EXIT
@@ -275,5 +292,5 @@ qemu-system-x86_64 \
 	\
 	-net nic,macaddr="$MAC" -net bridge,br=br0 \
 	\
-	-kernel "$LINUX" -initrd "$INITRD" -append "$APPEND"
+	-kernel "$LINUX" -initrd "$INITRD" -append "$APPEND" $BLKOPT
 )
