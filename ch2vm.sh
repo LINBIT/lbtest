@@ -99,11 +99,11 @@ shopt -u nullglob
 EXTRAPKGS=$OVERLAY/extra/$DISTNAME
 
 # RCK's version of double rot13:
-MD5OVERALL="${DISTNAME}-${KERN_INITRAMFS}" # "seed", see comment below why I do that
+PKGSONLY=""
 for pkg in "$UTILSPKG" "$EXXEPKG" "$LOGSCANPKG" "$TESTSPKG" "$KERNELPKG"; do
 	MD5PKG=$(md5sum "$pkg" | cut -f1 -d' ')
-	MD5OVERALL=${MD5OVERALL}-${MD5PKG}
-	MD5OVERALL=$(echo "$MD5OVERALL" | md5sum | cut -f1 -d' ')
+	PKGSONLY="${PKGSONLY}-${MD5PKG}"
+	PKGSONLY=$(echo "$PKGSONLY" | md5sum | cut -f1 -d' ')
 done
 
 STATICZFS=$BASEZFS/${ZFSDISTNAME}-${KERN_INITRAMFS}
@@ -115,6 +115,7 @@ STATICSNAP=${STATICZFS}@static
 # - including the distri + kernel in the overall md5sum
 # - or by including it in the PKG variables and therefore the ZFS names
 # here we do both, especually including it into the ZFS name (this makes it a bit easier to read as a human)
+MD5OVERALL=$(echo "$PKGSONLY-${DISTNAME}-${KERN_INITRAMFS}" | md5sum | cut -f1 -d' ')
 PKGZFS=${STATICZFS}-${MD5OVERALL}
 PKGMNT=/$PKGZFS
 PKGSNAP=${PKGZFS}@pkgs
@@ -205,7 +206,7 @@ create_vm_base() {
 		echo "Creating snapshot containing volatile packages (drbd9, utils, test suite) image"
 		zfs clone "$STATICSNAP" "$PKGZFS"
 		cp "$UTILSPKG" "$KERNELPKG" "$EXXEPKG" "$LOGSCANPKG" "$TESTSPKG" "${PKGMNT}/"
-		echo "$(gen_uuid) - PKGS $MD5OVERALL" >> "${PKGMNT}/history.txt"
+		echo "$(gen_uuid) - PKGS ${PKGSONLY}/${MD5OVERALL}" >> "${PKGMNT}/history.txt"
 		mount --bind /proc "${PKGMNT}/proc"
 		mount --bind /dev  "${PKGMNT}/dev"
 		chroot "$PKGMNT" /bin/sh -c "no_initramfs=1 $INST_UTIL /*.${FORMAT}; rm -f /*.${FORMAT}"
