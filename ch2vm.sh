@@ -84,6 +84,8 @@ LINUXPKGNAME=${ZFSDISTNAME}-${KERN_INITRAMFS}.${FORMAT}
 LINUXPKG=$BASEMNT/kis/$LINUXPKGNAME
 
 OVERLAY=$BASEMNT/overlay
+
+UTILSPKG=""; EXXEPKG=""; LOGSCANPKG=""; TESTSPKG=""; KERNELPKG=""
 shopt -s nullglob
 UTILSPKG=($OVERLAY/pkgs/drbd-utils/$DISTNAME/amd64/drbd-utils*.${FORMAT})
 [ "${#UTILSPKG[*]}" = "1" ] || die "UTILSPKG did not exactly match 1 file"
@@ -96,11 +98,13 @@ TESTSPKG=($OVERLAY/pkgs/drbd9-tests/drbd9-tests.tar.gz)
 KERNELPKG=($OVERLAY/pkgs/drbd/$DISTNAME/amd64/$KERN_INITRAMFS/$KPREFIX*.${FORMAT})
 [ "${#KERNELPKG[*]}" = "1" ] || die "KERNELPKG did not exactly match 1 file"
 shopt -u nullglob
+ALLPKGS=(${UTILSPKG[0]} ${EXXEPKG[0]} ${LOGSCANPKG[0]} ${TESTSPKG[0]} ${KERNELPKG[0]})
 EXTRAPKGS=$OVERLAY/extra/$DISTNAME
 
 # RCK's version of double rot13:
 PKGSONLY=""
-for pkg in "$UTILSPKG" "$EXXEPKG" "$LOGSCANPKG" "$TESTSPKG" "$KERNELPKG"; do
+for pkg in ${ALLPKGS[*]}; do
+	[ -z "$pkg" ] && continue
 	MD5PKG=$(md5sum "$pkg" | cut -f1 -d' ')
 	PKGSONLY="${PKGSONLY}-${MD5PKG}"
 	PKGSONLY=$(echo "$PKGSONLY" | md5sum | cut -f1 -d' ')
@@ -206,7 +210,10 @@ create_vm_base() {
 	if ! zfs list -t snapshot "$PKGSNAP"; then
 		echo "Creating snapshot containing volatile packages (drbd9, utils, test suite) image"
 		zfs clone "$STATICSNAP" "$PKGZFS"
-		cp "$UTILSPKG" "$KERNELPKG" "$EXXEPKG" "$LOGSCANPKG" "$TESTSPKG" "${PKGMNT}/"
+		for pkg in ${ALLPKGS[*]}; do
+			[ -z "$pkg" ] && continue
+			cp "$pkg" "${PKGMNT}/"
+		done
 		echo "$(gen_uuid) - PKGS ${PKGSONLY}/${MD5OVERALL}" >> "${PKGMNT}/history.txt"
 		mount --bind /proc "${PKGMNT}/proc"
 		mount --bind /dev  "${PKGMNT}/dev"
