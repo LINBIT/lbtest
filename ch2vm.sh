@@ -202,6 +202,7 @@ create_vm_base() {
 	fi
 
 	# this builds on the STATICSNAP, using a second lock does not really make sense here
+	# we want that to happen fast, so all dependencies have to be already installed!
 	if ! zfs list -t snapshot "$PKGSNAP"; then
 		echo "Creating snapshot containing volatile packages (drbd9, utils, test suite) image"
 		zfs clone "$STATICSNAP" "$PKGZFS"
@@ -209,6 +210,7 @@ create_vm_base() {
 		echo "$(gen_uuid) - PKGS ${PKGSONLY}/${MD5OVERALL}" >> "${PKGMNT}/history.txt"
 		mount --bind /proc "${PKGMNT}/proc"
 		mount --bind /dev  "${PKGMNT}/dev"
+		if echo "$INST_UTIL" | grep -q "yum"; then INST_UTIL="$INST_UTIL -C"; fi
 		chroot "$PKGMNT" /bin/sh -c "no_initramfs=1 $INST_UTIL /*.${FORMAT}; rm -f /*.${FORMAT}"
 		chroot "$PKGMNT" /bin/sh -c "tar xvf /drbd9-tests.tar.gz && cd /drbd9-tests && make && make install; rm -f /drbd9-tests.tar.gz"
 		# PS1="IN $PKGMNT# " chroot $PKGMNT /bin/bash -l -i
