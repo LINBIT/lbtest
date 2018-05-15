@@ -10,9 +10,13 @@ cat <<EOF
 $(basename $0)
    -d | --distribution: Distribution to boot
    -h | --help: Print help and exit
+        --jdir: Jenkins directory to store test logs
+        --jtest: Jenkins name of test
    -k | --kernel: Kernel to boot
    -p | --payloads: Payloads (single string, default: "shell")
    -v | --vm-nr: Number of VM (uint, e.g., 23)
+
+'--jdir' and '--jtest' are usually passed by 'vmshed'
 EOF
 	exit "$1"
 }
@@ -20,18 +24,21 @@ EOF
 getopts() {
 	[ "$(id -u)" = "0" ] || die "Run this script as root"
 
-	OPTS=$(getopt -o d:hk:p:v: --long distribution:,help,kernel:,payloads:,vm-nr: -n 'parse-options' -- "$@")
+	OPTS=$(getopt -o d:hk:p:v: --long distribution:,help,jdir:,jtest:,kernel:,payloads:,vm-nr: -n 'parse-options' -- "$@")
 	[ $? = 0 ] || die "Failed parsing options."
 
 	eval set -- "$OPTS"
 
 	DISTNAME=""; KERN_INITRAMFS=""; NR=""; HELP="";
+	JENKINS_DIR=""; JENKINS_TEST="";
 	PAYLOADS="shell"
 
 	while true; do
 		case "$1" in
 			-d | --distribution ) DISTNAME="$2"; shift; shift ;;
 			-h | --help ) HELP=true; shift ;;
+			--jdir ) JENKINS_DIR="$2"; shift; shift ;;
+			--jtest ) JENKINS_TEST="$2"; shift; shift ;;
 			-k | --kernel ) KERN_INITRAMFS="$2"; shift; shift ;;
 			-p | --payloads ) PAYLOADS="$2"; shift; shift ;;
 			-v | --vm-nr ) NR="$2"; shift; shift ;;
@@ -160,23 +167,9 @@ gen_uuid() {
 }
 
 clean_up() {
-	JENKINSARGS=""
-	for o in $(echo $PAYLOADS | tr ";" "\n"); do
-		[[ $o == jenkins* ]] && { JENKINSARGS=$(echo "$o" | cut -d':' -f2-); break; }
-	done
-
-	jdir=""
-	jtest=""
-	for o in $(echo "$JENKINSARGS" | tr ":" "\n"); do
-		case "$o" in
-			jdir=*) export $o ;;
-			jtest=*) export $o ;;
-		esac
-	done
-
-	if [ -n "$jdir" ] && [ -n "$jtest" ]; then
-		LOGDIR="${PERVMROOTMNT}/drbd9-tests/tests/log/${jtest}-latest"
-		(cd "$LOGDIR" && mkdir -p "$jdir" && tar -czf "${jdir}/logs.tar.gz" . )
+	if [ -n "$JENKINS_DIR" ] && [ -n "$JENKINS_TEST" ]; then
+		LOGDIR="${PERVMROOTMNT}/drbd9-tests/tests/log/${JENKINS_TEST}-latest"
+		(cd "$LOGDIR" && mkdir -p "$JENKINS_DIR" && tar -czf "${JENKINS_DIR}/logs.tar.gz" . )
 	fi
 
 	[ -f "${PERVMROOTMNT}/.resume" ] && NEEDS_CLEANUP=no
