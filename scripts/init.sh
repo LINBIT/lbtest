@@ -39,6 +39,9 @@ for p in $(echo $LB_PAYLOADS | tr ";" "\n"); do
 	p=${x[0]}
 	args=${x[1]}
 
+	# for now ignore, only simple client tests
+	[ "$p" = "preplinstor" ] && continue
+
 	echo "# Starting: $p with $args"
 	sh /payloads/$p $args
 done

@@ -126,6 +126,7 @@ LINUXPKG=$BASEMNT/kis/$LINUXPKGNAME
 OVERLAY=$BASEMNT/overlay
 
 UTILSPKG=""; EXXEPKG=""; LOGSCANPKG=""; TESTSPKG=""; KERNELPKG="";
+LSCLIENTPKG=""; LSSERVERPKG="";
 shopt -s nullglob
 KERNELPKG=($OVERLAY/pkgs/drbd/$DISTNAME/amd64/$KERN_INITRAMFS/$KPREFIX*.${FORMAT})
 [ "${#KERNELPKG[*]}" = "1" ] || die "KERNELPKG did not exactly match 1 file"
@@ -140,9 +141,17 @@ case "$SUITE" in
 		LOGSCANPKG=($OVERLAY/pkgs/logscan/$DISTNAME/amd64/logscan*.${FORMAT})
 		[ "${#LOGSCANPKG[*]}" = "1" ] || die "LOGSCANPKG did not exactly match 1 file"
 		;;
+	linstor)
+		TESTSPKG=($OVERLAY/pkgs/linstor-tests/linstor-tests.tar.gz)
+		[ "${#TESTSPKG[*]}" = "1" ] || die "TESTSPKG did not exactly match 1 file"
+		LSCLIENTPKG=($OVERLAY/pkgs/linstor-client/$DISTNAME/amd64/linstor-client*.${FORMAT})
+		[ "${#LSCLIENTPKG[*]}" = "1" ] || die "LSCLIENTPKG did not exactly match 1 file"
+		# LSSERVERPKG=($OVERLAY/pkgs/linstor-server/$DISTNAME/amd64/linstor-server*.${FORMAT})
+		# [ "${#LSSERVERPKG[*]}" = "1" ] || die "LSSERVERPKG did not exactly match 1 file"
+		;;
 esac
 shopt -u nullglob
-ALLPKGS=(${UTILSPKG[0]} ${EXXEPKG[0]} ${LOGSCANPKG[0]} ${TESTSPKG[0]} ${KERNELPKG[0]})
+ALLPKGS=(${UTILSPKG[0]} ${EXXEPKG[0]} ${LOGSCANPKG[0]} ${TESTSPKG[0]} ${KERNELPKG[0]} ${LSCLIENTPKG[0]} ${LSSERVERPKG[0]})
 EXTRAPKGS=$OVERLAY/extra/$DISTNAME
 
 # RCK's version of double rot13:
@@ -174,7 +183,14 @@ gen_uuid() {
 
 clean_up() {
 	if [ -n "$JENKINS_DIR" ] && [ -n "$JENKINS_TEST" ]; then
-		LOGDIR="${PERVMROOTMNT}/drbd9-tests/tests/log/${JENKINS_TEST}-latest"
+		case "$SUITE" in
+			drbd9)
+				LOGDIR="${PERVMROOTMNT}/drbd9-tests/tests/log/${JENKINS_TEST}-latest"
+				;;
+			linstor)
+				LOGDIR="${PERVMROOTMNT}/linstor-tests/tests/log/${JENKINS_TEST}-latest"
+				;;
+		esac
 		(cd "$LOGDIR" && mkdir -p "$JENKINS_DIR" && tar -czf "${JENKINS_DIR}/logs.tar.gz" . )
 	fi
 
@@ -215,19 +231,23 @@ create_vm_base() {
 			cp "$EXTRAPKGS"/*.${FORMAT} "${STATICMNT}/"
 			chroot "$STATICMNT" /bin/sh -c "$INST_UTIL /*.${FORMAT}; rm -f /*.${FORMAT}"
 		fi
+
+		# static dependencies
 		case "$FORMAT" in
 			"rpm")
-				RPMPKG="e2fsprogs kmod iptables fio lvm2 rsyslog openssh-server"
+				RPMPKG="e2fsprogs kmod iptables fio lvm2 rsyslog openssh-server java-openjdk-headless"
 				[ "$DISTNAME" = "rhel6.0" ] && RPMPKG="$RPMPKG python-argparse"
 				chroot "$STATICMNT" /bin/sh -c "yum install -y $RPMPKG"
 				# PS1="IN $STATICMNT# " chroot $STATICMNT /bin/bash -l -i
 				;;
 			"deb")
-				chroot "$STATICMNT" /bin/sh -c "apt -y update && apt -y install rsyslog openssh-server iputils-ping kmod fio iptables thin-provisioning-tools"
-				chroot "$STATICMNT" /bin/sh -c "apt -y install vim-nox";
-				[ -n "$INSTALLVIM" ] && chroot "$STATICMNT" /bin/sh -c "apt -y install vim-nox";
+				DEBPKG="rsyslog openssh-server iputils-ping kmod fio iptables thin-provisioning-tools default-jre-headless"
+				chroot "$STATICMNT" /bin/sh -c "apt-get -y update && apt-get -y install $DEBPKG"
+				chroot "$STATICMNT" /bin/sh -c "apt-get -y install vim-nox"
+				[ -n "$INSTALLVIM" ] && chroot "$STATICMNT" /bin/sh -c "apt-get -y install vim-nox";
 				;;
 		esac
+
 		umount "${STATICMNT}/proc"
 		umount "${STATICMNT}/dev"
 		zfs umount "$STATICZFS"
@@ -249,7 +269,14 @@ create_vm_base() {
 		mount --bind /dev  "${PKGMNT}/dev"
 		if echo "$INST_UTIL" | grep -q "yum"; then INST_UTIL="$INST_UTIL -C"; fi
 		chroot "$PKGMNT" /bin/sh -c "no_initramfs=1 $INST_UTIL /*.${FORMAT}; rm -f /*.${FORMAT}"
-		chroot "$PKGMNT" /bin/sh -c "tar xvf /drbd9-tests.tar.gz && cd /drbd9-tests && make && make install; rm -f /drbd9-tests.tar.gz"
+		case "$SUITE" in
+			drbd9)
+				chroot "$PKGMNT" /bin/sh -c "tar xvf /drbd9-tests.tar.gz && cd /drbd9-tests && make && make install; rm -f /drbd9-tests.tar.gz"
+				;;
+			linstor)
+				chroot "$PKGMNT" /bin/sh -c "tar xvf /linstor-tests.tar.gz && cd /linstor-tests; rm -f /linstor-tests.tar.gz"
+				;;
+		esac
 		# PS1="IN $PKGMNT# " chroot $PKGMNT /bin/bash -l -i
 		umount "${PKGMNT}/proc"
 		umount "${PKGMNT}/dev"
