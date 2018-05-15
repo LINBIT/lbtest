@@ -5,17 +5,44 @@ die() {
 	exit 1
 }
 
-NEEDS_CLEANUP=no
-SUICIDE=no
+help() {
+cat <<EOF
+$(basename $0)
+   -d | --distribution: Distribution to boot
+   -h | --help: Print help and exit
+   -k | --kernel: Kernel to boot
+   -p | --payloads: Payloads (single string, default: "shell")
+   -v | --vm-nr: Number of VM (uint, e.g., 23)
+EOF
+	exit "$1"
+}
 
-ARGC=$#
-if [[ $ARGC -lt 3 || $ARGC -gt 4 ]]; then die 'dist kernel vmnr "[payload1;payload2;...]"'; fi
+getopts() {
+	[ "$(id -u)" = "0" ] || die "Run this script as root"
 
-[ "$(id -u)" = "0" ] || die "Run this script as root"
+	OPTS=$(getopt -o d:hk:p:v: --long distribution:,help,kernel:,payloads:,vm-nr: -n 'parse-options' -- "$@")
+	[ $? = 0 ] || die "Failed parsing options."
 
-for i in "id_rsa" "id_rsa.pub" "authorized_keys"; do
-	[ -f ./scripts/ssh/$i ] || die "$i does not exist"
-done
+	eval set -- "$OPTS"
+
+	DISTNAME=""; KERN_INITRAMFS=""; NR=""; HELP="";
+	PAYLOADS="shell"
+
+	while true; do
+		case "$1" in
+			-d | --distribution ) DISTNAME="$2"; shift; shift ;;
+			-h | --help ) HELP=true; shift ;;
+			-k | --kernel ) KERN_INITRAMFS="$2"; shift; shift ;;
+			-p | --payloads ) PAYLOADS="$2"; shift; shift ;;
+			-v | --vm-nr ) NR="$2"; shift; shift ;;
+			-- ) shift; break ;;
+			* ) break ;;
+		esac
+	done
+
+	[ "$HELP" = "true" ] && help 0
+	[ -z "$DISTNAME" ] || [ -z "$KERN_INITRAMFS" ] || [ -z "$NR" ] && help 1
+}
 
 # VARIABLE SETUP
 : "${TMP:=/tmp}"
@@ -26,9 +53,14 @@ done
 : "${MACBASE:=52:54:57:99:99}"
 : "${BASEZFS:=tank/d9ts}"
 
-DISTNAME=$1
-KERN_INITRAMFS=$2
-NR=$3
+for i in "id_rsa" "id_rsa.pub" "authorized_keys"; do
+	[ -f ./scripts/ssh/$i ] || die "$i does not exist"
+done
+
+getopts "$@"
+
+NEEDS_CLEANUP=no
+SUICIDE=no
 
 VMNAME=vm-$NR
 IPOFFSET=200
@@ -49,7 +81,6 @@ if ! zfs list -t snapshot "$CHROOTSNAP"; then die "CHROOTSNAP ($CHROOTSNAP) does
 PERVMROOTZFS=$BASEZFS/$VMNAME
 PERVMROOTMNT=/${PERVMROOTZFS}
 
-[ "$ARGC" = 4 ] && PAYLOADS=$4 || PAYLOADS="shell"
 BLKNAME="blk-${VMNAME}"
 BLKZFS="${BASEZFS}/${BLKNAME}"
 BLKOPT=""
