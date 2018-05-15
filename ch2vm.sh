@@ -242,7 +242,7 @@ create_vm_base() {
 				;;
 			"deb")
 				DEBPKG="rsyslog openssh-server iputils-ping kmod fio iptables thin-provisioning-tools default-jre-headless"
-				chroot "$STATICMNT" /bin/sh -c "apt-get -y update && apt-get -y install $DEBPKG"
+				chroot "$STATICMNT" /bin/sh -c "apt-get -y update && apt-get install -yf && apt-get -y install $DEBPKG"
 				chroot "$STATICMNT" /bin/sh -c "apt-get -y install vim-nox"
 				[ -n "$INSTALLVIM" ] && chroot "$STATICMNT" /bin/sh -c "apt-get -y install vim-nox";
 				;;
