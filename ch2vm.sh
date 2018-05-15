@@ -14,6 +14,7 @@ $(basename $0)
         --jtest: Jenkins name of test
    -k | --kernel: Kernel to boot
    -p | --payloads: Payloads (single string, default: "shell")
+   -s | --suite: Test suite to run (default: "drbd9")
    -v | --vm-nr: Number of VM (uint, e.g., 23)
 
 '--jdir' and '--jtest' are usually passed by 'vmshed'
@@ -24,14 +25,14 @@ EOF
 getopts() {
 	[ "$(id -u)" = "0" ] || die "Run this script as root"
 
-	OPTS=$(getopt -o d:hk:p:v: --long distribution:,help,jdir:,jtest:,kernel:,payloads:,vm-nr: -n 'parse-options' -- "$@")
+	OPTS=$(getopt -o d:hk:p:s:v: --long distribution:,help,jdir:,jtest:,kernel:,payloads:,suite:,vm-nr: -n 'parse-options' -- "$@")
 	[ $? = 0 ] || die "Failed parsing options."
 
 	eval set -- "$OPTS"
 
 	DISTNAME=""; KERN_INITRAMFS=""; NR=""; HELP="";
 	JENKINS_DIR=""; JENKINS_TEST="";
-	PAYLOADS="shell"
+	PAYLOADS="shell"; SUITE="drbd9";
 
 	while true; do
 		case "$1" in
@@ -41,6 +42,7 @@ getopts() {
 			--jtest ) JENKINS_TEST="$2"; shift; shift ;;
 			-k | --kernel ) KERN_INITRAMFS="$2"; shift; shift ;;
 			-p | --payloads ) PAYLOADS="$2"; shift; shift ;;
+			-s | --suite ) SUITE="$2"; shift; shift ;;
 			-v | --vm-nr ) NR="$2"; shift; shift ;;
 			-- ) shift; break ;;
 			* ) break ;;
@@ -123,18 +125,22 @@ LINUXPKG=$BASEMNT/kis/$LINUXPKGNAME
 
 OVERLAY=$BASEMNT/overlay
 
-UTILSPKG=""; EXXEPKG=""; LOGSCANPKG=""; TESTSPKG=""; KERNELPKG=""
+UTILSPKG=""; EXXEPKG=""; LOGSCANPKG=""; TESTSPKG=""; KERNELPKG="";
 shopt -s nullglob
-UTILSPKG=($OVERLAY/pkgs/drbd-utils/$DISTNAME/amd64/drbd-utils*.${FORMAT})
-[ "${#UTILSPKG[*]}" = "1" ] || die "UTILSPKG did not exactly match 1 file"
-EXXEPKG=($OVERLAY/pkgs/exxe/$DISTNAME/amd64/exxe*.${FORMAT})
-[ "${#EXXEPKG[*]}" = "1" ] || die "EXXEPKG did not exactly match 1 file"
-LOGSCANPKG=($OVERLAY/pkgs/logscan/$DISTNAME/amd64/logscan*.${FORMAT})
-[ "${#LOGSCANPKG[*]}" = "1" ] || die "LOGSCANPKG did not exactly match 1 file"
-TESTSPKG=($OVERLAY/pkgs/drbd9-tests/drbd9-tests.tar.gz)
-[ "${#TESTSPKG[*]}" = "1" ] || die "TESTSPKG did not exactly match 1 file"
 KERNELPKG=($OVERLAY/pkgs/drbd/$DISTNAME/amd64/$KERN_INITRAMFS/$KPREFIX*.${FORMAT})
 [ "${#KERNELPKG[*]}" = "1" ] || die "KERNELPKG did not exactly match 1 file"
+UTILSPKG=($OVERLAY/pkgs/drbd-utils/$DISTNAME/amd64/drbd-utils*.${FORMAT})
+[ "${#UTILSPKG[*]}" = "1" ] || die "UTILSPKG did not exactly match 1 file"
+case "$SUITE" in
+	drbd9)
+		TESTSPKG=($OVERLAY/pkgs/drbd9-tests/drbd9-tests.tar.gz)
+		[ "${#TESTSPKG[*]}" = "1" ] || die "TESTSPKG did not exactly match 1 file"
+		EXXEPKG=($OVERLAY/pkgs/exxe/$DISTNAME/amd64/exxe*.${FORMAT})
+		[ "${#EXXEPKG[*]}" = "1" ] || die "EXXEPKG did not exactly match 1 file"
+		LOGSCANPKG=($OVERLAY/pkgs/logscan/$DISTNAME/amd64/logscan*.${FORMAT})
+		[ "${#LOGSCANPKG[*]}" = "1" ] || die "LOGSCANPKG did not exactly match 1 file"
+		;;
+esac
 shopt -u nullglob
 ALLPKGS=(${UTILSPKG[0]} ${EXXEPKG[0]} ${LOGSCANPKG[0]} ${TESTSPKG[0]} ${KERNELPKG[0]})
 EXTRAPKGS=$OVERLAY/extra/$DISTNAME
