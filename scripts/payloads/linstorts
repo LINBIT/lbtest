@@ -1,0 +1,47 @@
+#!/bin/bash
+
+ARGS=$(echo $1 | tr ":" "\n")
+
+for o in $ARGS; do
+	case "$o" in
+		leader) leader="true" ;;
+		tests=*) export $o ;;
+		undertest=*) export $o ;;
+	esac
+done
+
+[ -z $leader ] && { echo "Waiting for the leader... bye"; exit 0; }
+
+SECONDS=0
+echo "Pinging nodes under test"
+while : ; do
+
+	PING_SUCC="yes"
+	for n in $(echo $undertest | tr "," "\n"); do
+		echo "SSH pinging $n at $(date)"
+		#ping -c 1 -w 1 $n || { PING_SUCC="no"; break; }
+		ssh -o ServerAliveInterval=5 -o ServerAliveCountMax=0 -o ConnectTimeout=1 \
+			-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $n true || { PING_SUCC="no"; break; }
+	done
+
+	[ $PING_SUCC = "yes" ] && break
+	[ $SECONDS -lt 90 ] || { echo "Giving up ssh pinging after $SECONDS"; exit 1; }
+
+	sleep 1
+done
+echo "Ping was successful"
+
+RET=0
+cd /linstor-tests || exit 1
+for t in $(echo $tests | tr "," "\n"); do
+# potentially dangerous, but we are in a VM anyways ;-)
+	./${t}.sh $(echo $undertest | tr "," " ")
+	rt=$?
+	[ $rt = 0 ] && echo "Test $t: SUCCESS" || echo "Test $t: FAILED"
+	[ $RET = 0 ] && RET=$rt
+	sync
+done
+
+echo "linstorts returning: $RET"
+exit $RET
+
