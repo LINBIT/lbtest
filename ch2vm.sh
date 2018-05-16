@@ -237,11 +237,12 @@ create_vm_base() {
 			"rpm")
 				RPMPKG="e2fsprogs kmod iptables fio lvm2 rsyslog openssh-server java-openjdk-headless"
 				[ "$DISTNAME" = "rhel6.0" ] && RPMPKG="$RPMPKG python-argparse"
+				[ "$DISTNAME" = "rhel7.0" ] && RPMPKG="$RPMPKG protobuf-python python-setuptools"
 				chroot "$STATICMNT" /bin/sh -c "yum install -y $RPMPKG"
 				# PS1="IN $STATICMNT# " chroot $STATICMNT /bin/bash -l -i
 				;;
 			"deb")
-				DEBPKG="rsyslog openssh-server iputils-ping iproute2 kmod fio iptables lvm2 thin-provisioning-tools default-jre-headless"
+				DEBPKG="rsyslog openssh-server iputils-ping iproute2 kmod fio iptables lvm2 thin-provisioning-tools default-jre-headless python-natsort python-protobuf"
 				chroot "$STATICMNT" /bin/sh -c "apt-get -y update && apt-get install -yf && apt-get -y install $DEBPKG"
 				chroot "$STATICMNT" /bin/sh -c "apt-get -y install vim-nox"
 				[ -n "$INSTALLVIM" ] && chroot "$STATICMNT" /bin/sh -c "apt-get -y install vim-nox";
