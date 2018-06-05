@@ -1,6 +1,6 @@
 lbtest
 Execute tests efficiently and concurrently in many VMs
-7 Mar 2018
+6 Jun 2018
 Tags: linbit, DRBD, testing
 
 Roland Kammerer
@@ -29,7 +29,7 @@ The framework consists of two parts:
 - `docker` images of the distributions to use
 - [[http://zfsonlinux.org/][zfs]]
 - NFS server
-- qemu
+- qemu/kvm
 
 * d2ch
 
@@ -56,14 +56,14 @@ Before it can be used, you need the following prerequisites:
 - A kernel image
 - An initrd
 - A kernel package
-- Packages required during test (e.g., drbd-utils, drbd9, the test suite...)
+- Packages required during test (e.g., drbd-utils, drbd9, linstor, test suites,...)
 
 Putting these requirements in place is shown on the next slide.
 
 * ch2vm - Static Packages
 
 For the kernel, the initrd, and the kernel package,
-follow the naming scheme. For "RHEL7" this might look like this:
+follow this naming scheme. For "RHEL7" this might look like this:
 
   ls -1 /tank/d9ts/kis/ | grep rhel7
   dc-rhel7.0-amd64-3.10.0-693.17.1.el7.initrd
@@ -74,7 +74,7 @@ Downloading and generating these files can be done in a `docker` container.
 Generating an initrd for RHEL needs some extra work:
 
 - install `dracut-network` and `nfs-utils`
-- dracut --add nfs --add qemu --add qemu-net -f ./initrd 3.10.0-693.17.1.el7.x86_64 
+- dracut --add nfs --add qemu --add qemu-net -f ./initrd 3.10.0-693.17.1.el7.x86_64
 
 * ch2vm - Dynamic Packages
 
@@ -84,7 +84,7 @@ software under test). These are placed like this:
 
   ls /tank/d9ts/overlay/pkgs/
   drbd  drbd9-tests  drbd-utils  exxe  logscan
-  # note the following directory hierarchy matching the kernel
+  # note the following directory hierarchy matches the kernel
   # exactly one package per directory
   # kernel packages:
   root@lbtest:/tank/d9ts/overlay/pkgs/drbd/rhel7.0/amd64/3.10.0-693.17.1.el7# ls *.rpm
@@ -94,10 +94,10 @@ software under test). These are placed like this:
   drbd-utils-9.2.2-1.el7.x86_64.rpm
 
 Obviously it is up to you to generate packages for all
-distribution/kernel flavors you want to test.
+distribution/kernel flavors you want to test. We automate that via Jenkins.
 
 * ch2vm - Starting a VM
-  ch2vm.sh rhel7.0 3.10.0-693.17.1.el7 23 "lvm;loaddrbd;sshd;shell"
+  ch2vm.sh -d rhel7.0 -k 3.10.0-693.17.1.el7 -v 23 -p "lvm;loaddrbd;sshd;shell"
 
 What happens here are multiple things:
 
@@ -138,7 +138,7 @@ The "d9ts" payload takes another set of options:
 
 A controller execution could look like this:
 
-  ch2vm.sh rhel7.0 3.10.0-693.17.1.el7 23 "d9ts:leader:tests=connect:undertest=vm-24,vm-25;shell"
+  ch2vm.sh -d rhel7.0 -k 3.10.0-693.17.1.el7 -v 23 "d9ts:leader:tests=connect:undertest=vm-24,vm-25;shell"
 
 The shutdown payloads should not be used, `vmshed` provides
 a much better way to execute multiple tests concurrently.
@@ -161,13 +161,13 @@ a much better way to execute multiple tests concurrently.
 
 - In the above example there are 3 "test groups".
 - Tests in a test group are executed concurrently
-- Test groups are *not* executed concurrently. So tests in the "vms:3" group start after the ones in "vms:2" are done
+- Test groups are *not* executed concurrently. So tests in the "vms":3 group start after the ones in "vms:"2 are done
 
 * vmshed (2)
 
 - The maximum number of VMs is specified via the `-nvms` flag, first VM via `-startvm`.
 - There are flags to fail fast after the first failed test (`-failtest`), or after at least one failed in the test group (`-failgroup`).
-- There are also additional flags to alter various timeouts.
+- There are also additional flags to alter various timeouts, and set dirs for Jenkins integration.
 - `vmshed` assigns a random distribution/kernel from `vms.json` to every VM.
 - Every instance of a VM that is started via "ch2vm" is executed via `systemd-run`.  This makes it easy to cleanly terminate all processes started by ch2vm.
 
@@ -176,5 +176,4 @@ Using this approach and 16 VMs concurrently, we can execute the test suite in ~8
 * Future work
 
 - Allow traditional boots. There is already a pseudo "systemd" payload which 'exec's systemd, but this would require more work.
-- Add other test suites (LINSTOR is an obvious candidate). The environment feels flexible enough, this should be easy.
 - Maybe generalize this framework a bit more. While it is certainly useful for someone working on such a thing, it would be nice to get rid of LINBIT specifica (naming of containers, which packages to include in the static package part,...). Don't expect that to happen, but patches welcome... ;-)
