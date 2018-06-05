@@ -1,0 +1,17 @@
+#!/bin/bash
+
+ARGS=$(echo $1 | tr ":" "\n")
+
+for o in $ARGS; do
+	case "$o" in
+		controller) controller="true" ;;
+	esac
+done
+
+export PATH=$PATH:/opt/linstor-server/bin
+
+if [ "$controller" = "true" ]; then
+	Controller &
+else
+	Satellite &
+fi
