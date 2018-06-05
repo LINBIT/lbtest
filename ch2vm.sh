@@ -146,8 +146,8 @@ case "$SUITE" in
 		[ "${#TESTSPKG[*]}" = "1" ] || die "TESTSPKG did not exactly match 1 file"
 		LSCLIENTPKG=($OVERLAY/pkgs/linstor-client/$DISTNAME/amd64/linstor-client*.${FORMAT})
 		[ "${#LSCLIENTPKG[*]}" = "1" ] || die "LSCLIENTPKG did not exactly match 1 file"
-		# LSSERVERPKG=($OVERLAY/pkgs/linstor-server/$DISTNAME/amd64/linstor-server*.${FORMAT})
-		# [ "${#LSSERVERPKG[*]}" = "1" ] || die "LSSERVERPKG did not exactly match 1 file"
+		LSSERVERPKG=($OVERLAY/pkgs/linstor-server/$DISTNAME/amd64/linstor-server*.${FORMAT})
+		[ "${#LSSERVERPKG[*]}" = "1" ] || die "LSSERVERPKG did not exactly match 1 file"
 		;;
 esac
 shopt -u nullglob
@@ -235,7 +235,7 @@ create_vm_base() {
 		# static dependencies
 		case "$FORMAT" in
 			"rpm")
-				RPMPKG="e2fsprogs kmod iptables fio lvm2 rsyslog openssh-server java-openjdk-headless"
+				RPMPKG="e2fsprogs kmod iptables fio lvm2 rsyslog openssh-server java-1.8.0-openjdk-headless"
 				[ "$DISTNAME" = "rhel6.0" ] && RPMPKG="$RPMPKG python-argparse"
 				[ "$DISTNAME" = "rhel7.0" ] && RPMPKG="$RPMPKG protobuf-python python-setuptools"
 				chroot "$STATICMNT" /bin/sh -c "yum install -y $RPMPKG"
