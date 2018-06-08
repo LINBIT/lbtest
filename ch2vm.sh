@@ -306,7 +306,9 @@ zfs set sharenfs=on "$PERVMROOTZFS"
 ### PER VM SETUP
 # copying this might look weird, but I want to keep it in this repo...
 cp ./scripts/init.sh "${PERVMROOTMNT}/sbin/init.sh"
-chmod +x ./scripts/init.sh "${PERVMROOTMNT}/sbin/init.sh"
+chmod +x "${PERVMROOTMNT}/sbin/init.sh"
+cp ./scripts/drbd9.res "${PERVMROOTMNT}/sbin/drbd9.res"
+chmod +x "${PERVMROOTMNT}/sbin/init.sh"
 cp ./scripts/ssh/id_rsa "${PERVMROOTMNT}/etc/ssh/ssh_host_rsa_key"
 
 mkdir -p "${PERVMROOTMNT}/root/.ssh"
