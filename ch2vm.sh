@@ -12,6 +12,7 @@ $(basename $0)
    -h | --help: Print help and exit
         --jdir: Jenkins directory to store test logs
         --jtest: Jenkins name of test
+        --hash: Start a given pkg hash
    -k | --kernel: Kernel to boot
    -p | --payloads: Payloads (single string, default: "shell")
    -s | --suite: Test suite to run (default: "drbd9")
@@ -25,12 +26,12 @@ EOF
 getopts() {
 	[ "$(id -u)" = "0" ] || die "Run this script as root"
 
-	OPTS=$(getopt -o d:hk:p:s:v: --long distribution:,help,jdir:,jtest:,kernel:,payloads:,suite:,vm-nr: -n 'parse-options' -- "$@")
+	OPTS=$(getopt -o d:hk:p:s:v: --long distribution:,help,hash:,jdir:,jtest:,kernel:,payloads:,suite:,vm-nr: -n 'parse-options' -- "$@")
 	[ $? = 0 ] || die "Failed parsing options."
 
 	eval set -- "$OPTS"
 
-	DISTNAME=""; KERN_INITRAMFS=""; NR=""; HELP="";
+	DISTNAME=""; KERN_INITRAMFS=""; NR=""; HELP=""; HASH="";
 	JENKINS_DIR=""; JENKINS_TEST="";
 	PAYLOADS="shell"; SUITE="drbd9";
 
@@ -40,6 +41,7 @@ getopts() {
 			-h | --help ) HELP=true; shift ;;
 			--jdir ) JENKINS_DIR="$2"; shift; shift ;;
 			--jtest ) JENKINS_TEST="$2"; shift; shift ;;
+			--hash ) HASH="$2"; shift; shift ;;
 			-k | --kernel ) KERN_INITRAMFS="$2"; shift; shift ;;
 			-p | --payloads ) PAYLOADS="$2"; shift; shift ;;
 			-s | --suite ) SUITE="$2"; shift; shift ;;
@@ -173,9 +175,13 @@ STATICSNAP=${STATICZFS}@static
 # - or by including it in the PKG variables and therefore the ZFS names
 # here we do both, especually including it into the ZFS name (this makes it a bit easier to read as a human)
 MD5OVERALL=$(echo "$PKGSONLY-${DISTNAME}-${KERN_INITRAMFS}" | md5sum | cut -f1 -d' ')
+[ -n "$HASH"  ] && MD5OVERALL=$HASH
 PKGZFS=${STATICZFS}-${MD5OVERALL}
 PKGMNT=/$PKGZFS
 PKGSNAP=${PKGZFS}@pkgs
+if ! zfs list -t snapshot "$PKGSNAP" && [ -n "$HASH" ]; then
+	die "pkg snapshot with given hash ($HASH) does not exist"
+fi
 
 gen_uuid() {
 	cat /proc/sys/kernel/random/uuid
