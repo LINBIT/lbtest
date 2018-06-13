@@ -5,17 +5,34 @@ die() {
 	exit 1
 }
 
+RC=~/.ch2vmrc
+[ -f "$RC" ] && { echo "Loading config: $RC"; source "$RC"; }
+
+# VARIABLE SETUP
+DISTNAME="$dflt_dist"; KERN_INITRAMFS="$dflt_kernel"; NR=""; HELP=""; HASH="";
+JENKINS_DIR=""; JENKINS_TEST="";
+PAYLOADS="lvm;networking;loaddrbd;sshd;shell"; SUITE="drbd9";
+
+: "${TMP:=/tmp}"
+: "${NFSSERVER:=10.43.57.42}"
+: "${IPBASE:=10.43.70}"
+: "${NETMASK:=255.255.0.0}"
+: "${GW:=10.43.1.1}"
+: "${MACBASE:=52:54:57:99:99}"
+: "${BASEZFS:=tank/d9ts}"
+
+
 help() {
 cat <<EOF
 $(basename $0)
-   -d | --distribution: Distribution to boot
+   -d | --distribution: Distribution to boot (default: "$DISTNAME")
    -h | --help: Print help and exit
         --jdir: Jenkins directory to store test logs
         --jtest: Jenkins name of test
         --hash: Start a given pkg hash
-   -k | --kernel: Kernel to boot
-   -p | --payloads: Payloads (single string, default: "shell")
-   -s | --suite: Test suite to run (default: "drbd9")
+   -k | --kernel: Kernel to boot (default: "$KERN_INITRAMFS")
+   -p | --payloads: Payloads (single string, default: "$PAYLOADS")
+   -s | --suite: Test suite to run (default: "$SUITE")
    -v | --vm-nr: Number of VM (uint, e.g., 23)
 
 '--jdir' and '--jtest' are usually passed by 'vmshed'
@@ -30,10 +47,6 @@ getopts() {
 	[ $? = 0 ] || die "Failed parsing options."
 
 	eval set -- "$OPTS"
-
-	DISTNAME=""; KERN_INITRAMFS=""; NR=""; HELP=""; HASH="";
-	JENKINS_DIR=""; JENKINS_TEST="";
-	PAYLOADS="shell"; SUITE="drbd9";
 
 	while true; do
 		case "$1" in
@@ -54,15 +67,6 @@ getopts() {
 	[ "$HELP" = "true" ] && help 0
 	[ -z "$DISTNAME" ] || [ -z "$KERN_INITRAMFS" ] || [ -z "$NR" ] && help 1
 }
-
-# VARIABLE SETUP
-: "${TMP:=/tmp}"
-: "${NFSSERVER:=10.43.57.42}"
-: "${IPBASE:=10.43.70}"
-: "${NETMASK:=255.255.0.0}"
-: "${GW:=10.43.1.1}"
-: "${MACBASE:=52:54:57:99:99}"
-: "${BASEZFS:=tank/d9ts}"
 
 for i in "id_rsa" "id_rsa.pub" "authorized_keys"; do
 	[ -f ./scripts/ssh/$i ] || die "$i does not exist"
