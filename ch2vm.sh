@@ -11,7 +11,7 @@ RC=~/.ch2vmrc
 # VARIABLE SETUP
 DISTNAME="$dflt_dist"; KERN_INITRAMFS="$dflt_kernel"; NR=""; HELP=""; HASH="";
 JENKINS_DIR=""; JENKINS_TEST="";
-PAYLOADS="lvm;networking;loaddrbd;sshd;shell"; SUITE="drbd9";
+PAYLOADS="lvm;networking;loaddrbd;sshd;shell"; PAYLOADS_SET=""; SUITE="drbd9";
 
 : "${TMP:=/tmp}"
 : "${NFSSERVER:=10.43.57.42}"
@@ -56,13 +56,21 @@ getopts() {
 			--jtest ) JENKINS_TEST="$2"; shift; shift ;;
 			--hash ) HASH="$2"; shift; shift ;;
 			-k | --kernel ) KERN_INITRAMFS="$2"; shift; shift ;;
-			-p | --payloads ) PAYLOADS="$2"; shift; shift ;;
+			-p | --payloads ) PAYLOADS="$2"; PAYLOADS_SET="true"; shift; shift ;;
 			-s | --suite ) SUITE="$2"; shift; shift ;;
 			-v | --vm-nr ) NR="$2"; shift; shift ;;
 			-- ) shift; break ;;
 			* ) break ;;
 		esac
 	done
+
+	# if the user did not touch the payloads, we can help and set one matching the suite
+	if [ "$PAYLOADS_SET" != "true" ]; then
+		case "$SUITE" in
+			linstor) PAYLOADS="lvm;networking;loaddrbd;linstor:combined;sshd;shell";;
+			drbd);;
+		esac
+	fi
 
 	[ "$HELP" = "true" ] && help 0
 	[ -z "$DISTNAME" ] || [ -z "$KERN_INITRAMFS" ] || [ -z "$NR" ] && help 1
