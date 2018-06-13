@@ -1,17 +1,24 @@
 #!/bin/bash
 
-ARGS=$(echo $1 | tr ":" "\n")
+ARGS=$(echo "$1" | tr ":" "\n")
 
+lscont=""; lssat="";
 for o in $ARGS; do
 	case "$o" in
-		controller) controller="true" ;;
+		controller) lscont="true" ;;
+		combined) lscont="true"; lssat="true" ;;
+		satellite) lssat="true" ;;
 	esac
 done
 
 export PATH=$PATH:/opt/linstor-server/bin
 
-if [ "$controller" = "true" ]; then
-	Controller &
-else
+[ -z "$lscont" ] && [ -z "$lssat" ] && lssat="true"
+
+if [ "$lscont" = "true" ]; then
+	Controller -c /opt/linstor-server &
+fi
+
+if [ "$lssat" = "true" ]; then
 	Satellite &
 fi
