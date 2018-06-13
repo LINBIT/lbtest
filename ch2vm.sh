@@ -128,7 +128,7 @@ LINUXPKG=$BASEMNT/kis/$LINUXPKGNAME
 OVERLAY=$BASEMNT/overlay
 
 UTILSPKG=""; EXXEPKG=""; LOGSCANPKG=""; TESTSPKG=""; KERNELPKG="";
-LSCLIENTPKG=""; LSSERVERPKG="";
+LSCLIENTPKG=""; LSAPIPYPKG=""; LSSERVERPKG="";
 shopt -s nullglob
 KERNELPKG=($OVERLAY/pkgs/drbd/$DISTNAME/amd64/$KERN_INITRAMFS/$KPREFIX*.${FORMAT})
 [ "${#KERNELPKG[*]}" = "1" ] || die "KERNELPKG did not exactly match 1 file"
@@ -148,12 +148,14 @@ case "$SUITE" in
 		[ "${#TESTSPKG[*]}" = "1" ] || die "TESTSPKG did not exactly match 1 file"
 		LSCLIENTPKG=($OVERLAY/pkgs/linstor-client/$DISTNAME/amd64/linstor-client*.${FORMAT})
 		[ "${#LSCLIENTPKG[*]}" = "1" ] || die "LSCLIENTPKG did not exactly match 1 file"
+		LSAPIPYPKG=($OVERLAY/pkgs/python-linstor/$DISTNAME/amd64/python*-linstor*.${FORMAT})
+		[ "${#LSAPIPYPKG[*]}" = "1" ] || die "LSAPIPYPKG did not exactly match 1 file"
 		LSSERVERPKG=($OVERLAY/pkgs/linstor-server/$DISTNAME/amd64/linstor-server*.${FORMAT})
 		[ "${#LSSERVERPKG[*]}" = "1" ] || die "LSSERVERPKG did not exactly match 1 file"
 		;;
 esac
 shopt -u nullglob
-ALLPKGS=(${UTILSPKG[0]} ${EXXEPKG[0]} ${LOGSCANPKG[0]} ${TESTSPKG[0]} ${KERNELPKG[0]} ${LSCLIENTPKG[0]} ${LSSERVERPKG[0]})
+ALLPKGS=(${UTILSPKG[0]} ${EXXEPKG[0]} ${LOGSCANPKG[0]} ${TESTSPKG[0]} ${KERNELPKG[0]} ${LSCLIENTPKG[0]} ${LSAPIPYPKG[0]} ${LSSERVERPKG[0]})
 EXTRAPKGS=$OVERLAY/extra/$DISTNAME
 
 # RCK's version of double rot13:
