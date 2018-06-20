@@ -11,7 +11,7 @@ $(basename "$0"):
    -n | --node: node name and IP (e.g., -n node1:1.2.3.4)
    -m | --minor: minor number of the first volume (default: '10')
    -r | --res: resource name (default: 'r0')
-   -p | --pool: pool name (as in /dev/\$pool/\$res; default: 'drbdpool')
+   -p | --pool: pool name (as in /dev/\$pool/\$res; default: 'scratch')
         --port: port number (default: 7000)
    -s | --size: size of the volumes (in LVM units, e.g., '10M')
    -v | --volumes: number of volumes (default: 1)
@@ -90,7 +90,7 @@ get_opts() {
 	eval set -- "$OPTS"
 
 	NODES=(); IPS=();
-	POOL="drbdpool"; RES="r0"; VOLUMES="1"; MINOR="10"; SIZE="10M"; PORT="7000";
+	POOL="scratch"; RES="r0"; VOLUMES="1"; MINOR="10"; SIZE="10M"; PORT="7000";
 	DISKOPTS=(); NETOPTS=(); PEEROPTS=(); RESOPTS=();
 
 	while true; do
