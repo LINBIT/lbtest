@@ -169,12 +169,12 @@ case "$SUITE" in
 		[ "${#LSCLIENTPKG[*]}" = "1" ] || die "LSCLIENTPKG did not exactly match 1 file"
 		LSAPIPYPKG=($OVERLAY/pkgs/python-linstor/$DISTNAME/amd64/python*-linstor*.${FORMAT})
 		[ "${#LSAPIPYPKG[*]}" = "1" ] || die "LSAPIPYPKG did not exactly match 1 file"
-		LSSERVERPKG=($OVERLAY/pkgs/linstor-server/$DISTNAME/amd64/linstor-server*.${FORMAT})
-		[ "${#LSSERVERPKG[*]}" = "1" ] || die "LSSERVERPKG did not exactly match 1 file"
+		LSSERVERPKG=($OVERLAY/pkgs/linstor-server/$DISTNAME/amd64/linstor-*.${FORMAT})
+		[ "${#LSSERVERPKG[*]}" = "3" ] || die "LSSERVERPKG did not exactly match 3 files"
 		;;
 esac
 shopt -u nullglob
-ALLPKGS=(${UTILSPKG[0]} ${EXXEPKG[0]} ${LOGSCANPKG[0]} ${TESTSPKG[0]} ${KERNELPKG[0]} ${LSCLIENTPKG[0]} ${LSAPIPYPKG[0]} ${LSSERVERPKG[0]})
+ALLPKGS=(${UTILSPKG[0]} ${EXXEPKG[0]} ${LOGSCANPKG[0]} ${TESTSPKG[0]} ${KERNELPKG[0]} ${LSCLIENTPKG[0]} ${LSAPIPYPKG[0]} ${LSSERVERPKG[*]})
 EXTRAPKGS=$OVERLAY/extra/$DISTNAME
 
 # RCK's version of double rot13:

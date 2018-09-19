@@ -11,12 +11,12 @@ for o in $ARGS; do
 	esac
 done
 
-export PATH=$PATH:/opt/linstor-server/bin
+export PATH=$PATH:/usr/share/linstor-server/bin
 
 [ -z "$lscont" ] && [ -z "$lssat" ] && lssat="true"
 
 if [ "$lscont" = "true" ]; then
-	Controller -c /opt/linstor-server &
+	Controller -c /etc/linstor &
 fi
 
 if [ "$lssat" = "true" ]; then
