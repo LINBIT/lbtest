@@ -9,13 +9,13 @@ RC=~/.ch2vmrc
 [ -f "$RC" ] && { echo "Loading config: $RC"; source "$RC"; }
 
 # VARIABLE SETUP
-DISTNAME="$dflt_dist"; KERN_INITRAMFS="$dflt_kernel"; NR=""; HELP=""; HASH="";
+DISTNAME="$dflt_dist"; KERN_INITRAMFS="$dflt_kernel"; NR=""; HELP=""; HASH=""; UUID="";
 JENKINS_DIR=""; JENKINS_TEST="";
 PAYLOADS="lvm;networking;loaddrbd;sshd;shell"; PAYLOADS_SET=""; SUITE="drbd9";
 
 : "${TMP:=/tmp}"
 : "${NFSSERVER:=10.43.57.42}"
-: "${IPBASE:=10.43.70}"
+: "${IPBASE:=10.43.170}"
 : "${NETMASK:=255.255.0.0}"
 : "${GW:=10.43.1.1}"
 : "${MACBASE:=52:54:57:99:99}"
@@ -30,6 +30,7 @@ $(basename $0)
         --jdir: Jenkins directory to store test logs
         --jtest: Jenkins name of test
         --hash: Start a given pkg hash
+        --uuid: Use this as per-VM UUID (default: random)
    -k | --kernel: Kernel to boot (default: "$KERN_INITRAMFS")
    -p | --payloads: Payloads (single string, default: "$PAYLOADS")
    -s | --suite: Test suite to run (default: "$SUITE")
@@ -43,7 +44,7 @@ EOF
 getopts() {
 	[ "$(id -u)" = "0" ] || die "Run this script as root"
 
-	OPTS=$(getopt -o d:hk:p:s:v: --long distribution:,help,hash:,jdir:,jtest:,kernel:,payloads:,suite:,vm-nr: -n 'parse-options' -- "$@")
+	OPTS=$(getopt -o d:hk:p:s:v: --long distribution:,help,hash:,uuid:,jdir:,jtest:,kernel:,payloads:,suite:,vm-nr: -n 'parse-options' -- "$@")
 	[ $? = 0 ] || die "Failed parsing options."
 
 	eval set -- "$OPTS"
@@ -55,6 +56,7 @@ getopts() {
 			--jdir ) JENKINS_DIR="$2"; shift; shift ;;
 			--jtest ) JENKINS_TEST="$2"; shift; shift ;;
 			--hash ) HASH="$2"; shift; shift ;;
+			--uuid ) UUID="$2"; shift; shift ;;
 			-k | --kernel ) KERN_INITRAMFS="$2"; shift; shift ;;
 			-p | --payloads ) PAYLOADS="$2"; PAYLOADS_SET="true"; shift; shift ;;
 			-s | --suite ) SUITE="$2"; shift; shift ;;
@@ -101,7 +103,12 @@ CHROOTZFS=$BASEZFS/${ZFSDISTNAME}-latest
 CHROOTSNAP=${CHROOTZFS}@rootfs
 if ! zfs list -t snapshot "$CHROOTSNAP"; then die "CHROOTSNAP ($CHROOTSNAP) does not exist"; fi
 
-PERVMROOTZFS=$BASEZFS/$VMNAME
+gen_uuid() {
+	cat /proc/sys/kernel/random/uuid
+}
+
+[ -n "$UUID" ] && PERVM_UUID="$UUID" || PERVM_UUID=$(gen_uuid)
+PERVMROOTZFS=$BASEZFS/$VMNAME-$PERVM_UUID
 PERVMROOTMNT=/${PERVMROOTZFS}
 
 BLKNAME="blk-${VMNAME}"
@@ -197,10 +204,6 @@ if ! zfs list -t snapshot "$PKGSNAP" && [ -n "$HASH" ]; then
 	die "pkg snapshot with given hash ($HASH) does not exist"
 fi
 
-gen_uuid() {
-	cat /proc/sys/kernel/random/uuid
-}
-
 clean_up() {
 	if [ -n "$JENKINS_DIR" ] && [ -n "$JENKINS_TEST" ]; then
 		case "$SUITE" in
@@ -217,13 +220,13 @@ clean_up() {
 	[ -f "${PERVMROOTMNT}/.resume" ] && NEEDS_CLEANUP=no
 	if [ "$NEEDS_CLEANUP" = "yes" ]; then
 		[ -n "$BLKOPT" ] && zfs destroy "$BLKZFS"
-		zfs unshare "$PERVMROOTZFS"
-		zfs set sharenfs=off "$PERVMROOTZFS"
-		SECONDS=0
+		# zfs unshare "$PERVMROOTZFS"
+		# zfs set sharenfs=off "$PERVMROOTZFS"
 		if ! zfs destroy "$PERVMROOTZFS" ; then
-			echo 0 > /proc/fs/nfsd/threads
-			while sleep 1; do zfs destroy -v "$PERVMROOTZFS" && break; done
-			echo 20 > /proc/fs/nfsd/threads
+			# echo 0 > /proc/fs/nfsd/threads
+			SECONDS=0 # bash magic seconds...
+			while sleep 1; do zfs destroy -v "$PERVMROOTZFS" && break; (( $SECONDS > 30 )) && break; done
+			# echo 20 > /proc/fs/nfsd/threads
 		fi
 	fi
 }
@@ -273,6 +276,7 @@ create_vm_base() {
 		umount "${STATICMNT}/dev"
 		zfs umount "$STATICZFS"
 		sync
+		zfs set mountpoint=none "$STATICZFS"
 		zfs snapshot "$STATICSNAP"
 	fi
 
@@ -301,9 +305,12 @@ create_vm_base() {
 		# PS1="IN $PKGMNT# " chroot $PKGMNT /bin/bash -l -i
 		umount "${PKGMNT}/proc"
 		umount "${PKGMNT}/dev"
+		sync
 		zfs umount "$PKGZFS"
 		sync
+		zfs set mountpoint=none "$PKGZFS"
 		zfs snapshot "$PKGSNAP"
+		sync
 	fi
 	) 9> /var/lock/"$DISTNAME"-"$KERN_INITRAMFS".lock
 
@@ -313,6 +320,16 @@ create_vm_base() {
 	fi
 }
 
+PERVMLOCK=/var/lock/lbtest.vm.$NR.lock
+exec 9>> "$PERVMLOCK"
+ps -eo pid:1,cmd | grep "^[0-9]* qemu-system-x86_64 -name vm-$NR" \
+	&& die "vm-$NR still running!"
+flock -w 5 9 || {
+	exec 9>&-
+	fuser -v "$PERVMLOCK"
+	die "flock on \"$PERVMLOCK\" failed/timedout"
+}
+
 trap clean_up EXIT
 
 [ -f "${PERVMROOTMNT}/.resume" ] || create_vm_base
@@ -320,8 +337,10 @@ trap clean_up EXIT
 DATE=$(date +%F_%s)
 zfs set aux:lastused="$DATE" "$PKGSNAP"
 # use lastused=$(zfs get -o value -H aux:lastused $PKGSNAP)
-echo "$(gen_uuid) - $VMNAME started: $DATE" >> "${PERVMROOTMNT}/history.txt"
-zfs set sharenfs=on "$PERVMROOTZFS"
+echo "$PERVM_UUID - $VMNAME started: $DATE" >> "${PERVMROOTMNT}/history.txt"
+# zfs set sharenfs=on "$PERVMROOTZFS"
+export_opts=fsid=76${NR}$(date +%H%M%S),rw,wdelay,crossmnt,no_subtree_check,mountpoint,sec=sys,rw,secure,no_root_squash,no_all_squash
+zfs set sharenfs="$export_opts" "$PERVMROOTZFS"
 
 ### PER VM SETUP
 # copying this might look weird, but I want to keep it in this repo...
@@ -363,12 +382,16 @@ done
 
 [ "$SUICIDE" = "yes" ] && exit 1
 
+VM_GDB_PORT=$(( 2300 + NR ))
+
 (
 trap - TERM HUP
 qemu-system-x86_64 \
 	-name "$VMNAME" -machine accel=kvm:tcg -enable-kvm \
 	\
-	-m 768M \
+	-gdb tcp::$VM_GDB_PORT \
+	\
+	-m 768M -smp 4 \
 	-display none \
 	-nodefconfig -no-user-config -nodefaults \
 	\
@@ -383,4 +406,4 @@ qemu-system-x86_64 \
 	-net nic,macaddr="$MAC" -net bridge,br=br0 \
 	\
 	-kernel "$LINUX" -initrd "$INITRD" -append "$APPEND" $BLKOPT
-)
+) 9>&-
