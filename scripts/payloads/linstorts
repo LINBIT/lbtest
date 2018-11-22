@@ -35,7 +35,7 @@ RET=0
 cd /linstor-tests || exit 1
 for t in $(echo $tests | tr "," "\n"); do
 # potentially dangerous, but we are in a VM anyways ;-)
-	./${t}.sh $(echo $undertest | tr "," " ")
+	./${t}.py $(echo $undertest | tr "," " ")
 	rt=$?
 	[ $rt = 0 ] && echo "Test $t: SUCCESS" || echo "Test $t: FAILED"
 	[ $RET = 0 ] && RET=$rt
