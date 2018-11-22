@@ -9,7 +9,7 @@ RC=~/.ch2vmrc
 [ -f "$RC" ] && { echo "Loading config: $RC"; source "$RC"; }
 
 # VARIABLE SETUP
-DISTNAME="$dflt_dist"; KERN_INITRAMFS="$dflt_kernel"; NR=""; HELP=""; HASH=""; UUID="";
+DISTNAME="$dflt_dist"; KERN_INITRAMFS="$dflt_kernel"; NR=""; HELP=""; HASH=""; UUID=""; MEMORY="768M"; NR_CPU="4";
 JENKINS_DIR=""; JENKINS_TEST="";
 PAYLOADS="lvm;networking;loaddrbd;sshd;shell"; PAYLOADS_SET=""; SUITE="drbd9";
 
@@ -26,15 +26,17 @@ help() {
 cat <<EOF
 $(basename $0)
    -d | --distribution: Distribution to boot (default: "$DISTNAME")
+        --hash: Start a given pkg hash
    -h | --help: Print help and exit
         --jdir: Jenkins directory to store test logs
         --jtest: Jenkins name of test
-        --hash: Start a given pkg hash
-        --uuid: Use this as per-VM UUID (default: random)
    -k | --kernel: Kernel to boot (default: "$KERN_INITRAMFS")
+   -m | --mem: Amount of memorz (default: "$MEMORY")
    -p | --payloads: Payloads (single string, default: "$PAYLOADS")
    -s | --suite: Test suite to run (default: "$SUITE")
+        --smp: Number of CPUs (default: "$NR_CPU")
    -v | --vm-nr: Number of VM (uint, e.g., 23)
+        --uuid: Use this as per-VM UUID (default: random)
 
 '--jdir' and '--jtest' are usually passed by 'vmshed'
 EOF
@@ -44,7 +46,7 @@ EOF
 getopts() {
 	[ "$(id -u)" = "0" ] || die "Run this script as root"
 
-	OPTS=$(getopt -o d:hk:p:s:v: --long distribution:,help,hash:,uuid:,jdir:,jtest:,kernel:,payloads:,suite:,vm-nr: -n 'parse-options' -- "$@")
+	OPTS=$(getopt -o d:hk:m:p:s:v: --long distribution:,help,hash:,uuid:,jdir:,jtest:,kernel:,mem:,payloads:,smp:,suite:,vm-nr: -n 'parse-options' -- "$@")
 	[ $? = 0 ] || die "Failed parsing options."
 
 	eval set -- "$OPTS"
@@ -57,7 +59,9 @@ getopts() {
 			--jtest ) JENKINS_TEST="$2"; shift; shift ;;
 			--hash ) HASH="$2"; shift; shift ;;
 			--uuid ) UUID="$2"; shift; shift ;;
+			--smp ) NR_CPU="$2"; shift; shift ;;
 			-k | --kernel ) KERN_INITRAMFS="$2"; shift; shift ;;
+			-m | --mem ) MEMORY="$2"; shift; shift ;;
 			-p | --payloads ) PAYLOADS="$2"; PAYLOADS_SET="true"; shift; shift ;;
 			-s | --suite ) SUITE="$2"; shift; shift ;;
 			-v | --vm-nr ) NR="$2"; shift; shift ;;
@@ -294,6 +298,7 @@ create_vm_base() {
 		mount --bind /dev  "${PKGMNT}/dev"
 		if echo "$INST_UTIL" | grep -q "yum"; then INST_UTIL="$INST_UTIL -C"; fi
 		chroot "$PKGMNT" /bin/sh -c "no_initramfs=1 $INST_UTIL /*.${FORMAT}; rm -f /*.${FORMAT}"
+		[ -d "/etc/drbd.d" ] && echo "global { usage-count no; }" > /etc/drbd.d/global_common.conf
 		case "$SUITE" in
 			drbd9)
 				chroot "$PKGMNT" /bin/sh -c "tar xvf /drbd9-tests.tar.gz && cd /drbd9-tests && make && make install; rm -f /drbd9-tests.tar.gz"
@@ -391,7 +396,7 @@ qemu-system-x86_64 \
 	\
 	-gdb tcp::$VM_GDB_PORT \
 	\
-	-m 768M -smp 4 \
+	-m "$MEMORY" -smp "$NR_CPU" \
 	-display none \
 	-nodefconfig -no-user-config -nodefaults \
 	\
