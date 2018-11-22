@@ -2,6 +2,8 @@
 
 export PATH=/usr/local/bin:/usr/sbin:$PATH
 
+export TZ=UTC
+
 ### MAIN ###
 # yes, we assume that we only have modern distributions...
 # otherwise things like LVM gets nasty
