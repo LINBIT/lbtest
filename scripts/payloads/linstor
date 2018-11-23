@@ -13,12 +13,17 @@ done
 
 export PATH=$PATH:/usr/share/linstor-server/bin
 
+# Configure linstor to log to files
+sed -i /usr/share/linstor-server/lib/conf/logback.xml \
+	-e 's#<!-- <appender-ref ref="FILE" /> -->#<appender-ref ref="FILE" />#' \
+	-e 's#level="INFO"#level="TRACE"#'
+
 [ -z "$lscont" ] && [ -z "$lssat" ] && lssat="true"
 
 if [ "$lscont" = "true" ]; then
-	Controller -c /etc/linstor &
+	Controller -c /etc/linstor -l /var/log/linstor-controller &
 fi
 
 if [ "$lssat" = "true" ]; then
-	Satellite &
+	Satellite -l /var/log/linstor-satellite &
 fi
