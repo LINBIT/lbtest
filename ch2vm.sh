@@ -212,13 +212,13 @@ clean_up() {
 	if [ -n "$JENKINS_DIR" ] && [ -n "$JENKINS_TEST" ]; then
 		case "$SUITE" in
 			drbd9)
-				LOGDIR="${PERVMROOTMNT}/drbd9-tests/tests/log/${JENKINS_TEST}-latest"
+				LOG_DIR="${PERVMROOTMNT}/drbd9-tests/tests/log/${JENKINS_TEST}-latest"
 				;;
 			linstor)
-				LOGDIR="${PERVMROOTMNT}/linstor-tests/tests/log/${JENKINS_TEST}-latest"
+				LOG_DIR="${PERVMROOTMNT}/var/log/linstor"
 				;;
 		esac
-		(cd "$LOGDIR" && mkdir -p "$JENKINS_DIR" && tar -czf "${JENKINS_DIR}/logs.tar.gz" . )
+		(cd "$LOG_DIR" && mkdir -p "${JENKINS_DIR}" && tar -czf "${JENKINS_DIR}/logs-${VMNAME}.tar.gz" * )
 	fi
 
 	[ -f "${PERVMROOTMNT}/.resume" ] && NEEDS_CLEANUP=no

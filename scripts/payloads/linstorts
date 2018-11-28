@@ -38,15 +38,6 @@ for t in $(echo $tests | tr "," "\n"); do
 	./${t}.py $(echo $undertest | tr "," " ")
 	rt=$?
 
-	# collect logs
-	log_dir="/linstor-tests/tests/log/${t}-latest"
-	for n in $(echo $undertest | tr "," "\n"); do
-		echo "Collecting logs from $n"
-		mkdir -p "$log_dir/$n"
-		scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r $n:'/var/log/linstor-*' "$log_dir/$n" \
-			|| echo "Failed to collect logs from $n"
-	done
-
 	[ $rt = 0 ] && echo "Test $t: SUCCESS" || echo "Test $t: FAILED"
 	[ $RET = 0 ] && RET=$rt
 	sync
