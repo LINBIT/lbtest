@@ -1,0 +1,1 @@
+STATICEXTRA="python-argparse"

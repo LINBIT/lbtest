@@ -98,6 +98,11 @@ IPL=$((IPOFFSET + NR))
 IP=${IPBASE}.${IPL}
 MAC=$MACBASE:$(printf "%02x" "$NR")
 
+# variables set from EXTRACFG_FILE
+STATICEXTRA=""
+EXTRACFG_FILE="./scripts/${DISTNAME}.sh"
+[ -f "$EXTRACFG_FILE" ] && source "$EXTRACFG_FILE" # sets up e.g, STATICEXTRA
+
 BASEMNT=/$BASEZFS
 
 ZFSDISTNAME=dc-${DISTNAME}-amd64
@@ -262,17 +267,14 @@ create_vm_base() {
 		# static dependencies
 		case "$FORMAT" in
 			"rpm")
-				RPMPKG="e2fsprogs kmod iptables fio lvm2 rsyslog openssh-server java-1.8.0-openjdk-headless"
-				[ "$DISTNAME" = "rhel6.0" ] && RPMPKG="$RPMPKG python-argparse"
-				[ "$DISTNAME" = "rhel7.0" ] && RPMPKG="$RPMPKG protobuf-python python-setuptools"
+				RPMPKG="e2fsprogs kmod iptables fio lvm2 rsyslog openssh-server java-1.8.0-openjdk-headless $STATICEXTRA"
 				chroot "$STATICMNT" /bin/sh -c "yum install -y $RPMPKG"
 				# PS1="IN $STATICMNT# " chroot $STATICMNT /bin/bash -l -i
 				;;
 			"deb")
-				DEBPKG="rsyslog openssh-server iputils-ping iproute2 kmod fio iptables lvm2 thin-provisioning-tools default-jre-headless python-natsort python-protobuf"
+				DEBPKG="rsyslog openssh-server iputils-ping iproute2 kmod fio iptables lvm2 thin-provisioning-tools default-jre-headless python-natsort python-protobuf $STATICEXTRA"
 				chroot "$STATICMNT" /bin/sh -c "apt-get -y update && apt-get install -yf && apt-get -y install $DEBPKG"
 				chroot "$STATICMNT" /bin/sh -c "apt-get -y install vim-nox"
-				[ -n "$INSTALLVIM" ] && chroot "$STATICMNT" /bin/sh -c "apt-get -y install vim-nox";
 				;;
 		esac
 
