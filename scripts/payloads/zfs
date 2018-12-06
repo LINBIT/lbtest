@@ -1,0 +1,48 @@
+#!/bin/bash
+
+blockdevice=""
+
+ARGS=$(echo $1 | tr ":" "\n")
+for o in $ARGS; do
+	case "$o" in
+		bd=*) blockdevice="true" ;;
+	esac
+done
+
+create_vg() {
+	ZPoolname=$1
+	VGpath=$2
+	backing=$3
+
+	if [ ! -f /.resume ] && [ "$backing" = "file" ]; then
+		rm -f "$VGpath" # new file, so that it's no longer shared for sure.
+		if [ ! -f "$VGpath"  ]; then
+			truncate --size 1T "$VGpath"
+		fi
+	fi
+
+	if [ "$backing" = "file" ]; then
+		D=$(losetup --find)
+		losetup "$D" "$VGpath"
+	else
+		D=$VGpath
+	fi
+	udevadm settle -t 10 -E "$D"
+	# magic here
+
+	modprobe zfs
+	zpool create "$ZPoolname" "$D"
+}
+
+# lvm creates it, but zfs does not
+mkdir -p /run/lock
+
+# not in /tmp, because that is a limited-size tmpfs
+if [ -z "$blockdevice" ]; then
+	echo "Creating LV from loopback file"
+	modprobe loop
+	create_vg scratch /var/lib/my-vg file
+else
+	echo "Creating LV from blockdevice"
+	create_vg scratch /dev/sda blockdevice
+fi

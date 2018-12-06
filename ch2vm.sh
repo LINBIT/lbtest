@@ -125,10 +125,10 @@ BLKZFS="${BASEZFS}/${BLKNAME}"
 BLKOPT=""
 BLKSIZE=""
 BLKTHIN=""
-for o in $(echo $PAYLOADS | tr ";" "\n"); do
-	BLKTHIN=$(echo "$o" | grep "^lvm" | grep -o "thin")
+for o in $(echo $PAYLOADS | tr ";" '\n'); do
+	BLKTHIN=$(echo "$o" | grep '^lvm\|^zfs' | grep -o "thin")
 	[ -n "$BLKTHIN" ] && BLKTHIN="-s"
-	BLKSIZE=$(echo "$o" | grep "^lvm" | grep -o "bd=.*" | cut -f1 -d':' | cut -f2 -d'=')
+	BLKSIZE=$(echo "$o" | grep '^lvm\|^zfs' | grep -o "bd=.*" | cut -f1 -d':' | cut -f2 -d'=')
 	[ -n "$BLKSIZE" ] && break
 done
 [ -n "$BLKSIZE" ] && BLKOPT="-drive format=raw,discard=unmap,file=/dev/zvol/${BLKZFS}"
