@@ -8,7 +8,7 @@ die() {
 help() {
 cat <<EOF
 $(basename "$0"):
-   -n | --node: node name and IP (e.g., -n node1:1.2.3.4)
+   -n | --node: node name,IP,node-id (e.g., -n node1:1.2.3.4:0)
    -m | --minor: minor number of the first volume (default: '10')
    -r | --res: resource name (default: 'r0')
    -p | --pool: pool name (as in /dev/\$pool/\$res; default: 'scratch')
@@ -39,7 +39,7 @@ gen_res() {
 	gen_section "options" "${RESOPTS[*]}"
 	for (( i=0 ; i<${#NODES[*]} ; i++ )); do
 		echo "   on ${NODES[$i]} {"
-		echo "      node-id $i;"
+		echo "      node-id ${IDS[$i]};"
 		echo "      address ${IPS[$i]}:${PORT};"
 		for (( v=0 ; v < VOLUMES ; v++ )); do
 			echo "      volume $v {"
@@ -63,6 +63,7 @@ add_node() {
 	n=( $(echo "$1" | tr ":" " ") )
 	NODES[${#NODES[*]}]=${n[0]}
 	IPS[${#IPS[*]}]=${n[1]}
+	IDS[${#IDS[*]}]=${n[2]}
 }
 
 DSDISKO=$(drbdsetup help disk-options)
@@ -89,7 +90,7 @@ get_opts() {
 	OPTS=$(getopt -o hm:n:o:p:r:s:v: --long help,minor:,node:,opt:,res:,size:,pool:,volumes: -n 'parse-options' -- "$@")
 	eval set -- "$OPTS"
 
-	NODES=(); IPS=();
+	NODES=(); IPS=(); IDS=();
 	POOL="scratch"; RES="r0"; VOLUMES="1"; MINOR="10"; SIZE="10M"; PORT="7000";
 	DISKOPTS=(); NETOPTS=(); PEEROPTS=(); RESOPTS=();
 
