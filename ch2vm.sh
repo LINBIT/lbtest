@@ -267,6 +267,9 @@ create_vm_base() {
 		# static dependencies
 		case "$FORMAT" in
 			"rpm")
+				if [ "$DISTNAME" = "rhel6.0" ]; then
+					chroot "$STATICMNT" /bin/sh -c "sed -i '/^mirrorlist/d; s/^#baseurl/baseurl/' /etc/yum.repos.d/epel.repo"
+				fi
 				RPMPKG="e2fsprogs xfsprogs kmod iptables fio lvm2 rsyslog openssh-server java-1.8.0-openjdk-headless cryptsetup $STATICEXTRA"
 				chroot "$STATICMNT" /bin/sh -c "yum install -y $RPMPKG"
 				# PS1="IN $STATICMNT# " chroot $STATICMNT /bin/bash -l -i
