@@ -1,1 +1,1 @@
-STATICEXTRA="zfsutils-linux"
+STATICEXTRA="zfsutils-linux python-virtualenv mariadb-server postgresql"
