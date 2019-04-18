@@ -267,12 +267,12 @@ create_vm_base() {
 		# static dependencies
 		case "$FORMAT" in
 			"rpm")
-				RPMPKG="e2fsprogs kmod iptables fio lvm2 rsyslog openssh-server java-1.8.0-openjdk-headless $STATICEXTRA"
+				RPMPKG="e2fsprogs xfsprogs kmod iptables fio lvm2 rsyslog openssh-server java-1.8.0-openjdk-headless cryptsetup $STATICEXTRA"
 				chroot "$STATICMNT" /bin/sh -c "yum install -y $RPMPKG"
 				# PS1="IN $STATICMNT# " chroot $STATICMNT /bin/bash -l -i
 				;;
 			"deb")
-				DEBPKG="rsyslog openssh-server iputils-ping iproute2 kmod fio iptables lvm2 thin-provisioning-tools default-jre-headless python-natsort python-protobuf $STATICEXTRA"
+				DEBPKG="rsyslog xfsprogs openssh-server iputils-ping iproute2 kmod fio iptables lvm2 thin-provisioning-tools default-jre-headless python-natsort python-protobuf cryptsetup $STATICEXTRA"
 				chroot "$STATICMNT" /bin/sh -c "apt-get -y update && apt-get install -yf && apt-get -y install $DEBPKG"
 				chroot "$STATICMNT" /bin/sh -c "apt-get -y install vim-nox"
 				;;
