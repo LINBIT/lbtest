@@ -21,7 +21,7 @@ sed -i /usr/share/linstor-server/lib/conf/logback.xml \
 [ -z "$lscont" ] && [ -z "$lssat" ] && lssat="true"
 
 if [ "$lscont" = "true" ]; then
-	Controller -c /etc/linstor -l /var/log/linstor/controller &
+	Controller -c /etc/linstor -l /var/log/linstor/controller --rest-bind=0.0.0.0:3370 &
 fi
 
 if [ "$lssat" = "true" ]; then
