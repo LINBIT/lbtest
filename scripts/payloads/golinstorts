@@ -1,0 +1,58 @@
+#!/bin/bash
+
+ARGS=$(echo $1 | tr ":" "\n")
+
+for o in $ARGS; do
+	case "$o" in
+		leader) leader="true" ;;
+		tests=*) export $o ;;
+		undertest=*) export $o ;;
+		env=*) export $o ;;
+	esac
+done
+
+[ -z $leader ] && { echo "Waiting for the leader... bye"; exit 0; }
+
+SECONDS=0
+echo "Pinging nodes under test"
+while : ; do
+	PING_SUCC="yes"
+	for n in $(echo "$undertest" | tr "," "\n"); do
+		echo "SSH pinging $n at $(date)"
+		ssh -o ServerAliveInterval=5 -o ServerAliveCountMax=0 -o ConnectTimeout=1 \
+			-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$n" true || { PING_SUCC="no"; break; }
+	done
+
+	[ $PING_SUCC = "yes" ] && break
+	[ $SECONDS -lt 90 ] || { echo "Giving up ssh pinging after $SECONDS"; exit 1; }
+
+	sleep 1
+done
+echo "Ping was successful"
+
+echo "Connection to controller REST-API"
+controller=$(echo "$undertest" | cut -f1 -d',')
+SECONDS=0
+while : ; do
+	curl -s "http://${controller}:3370/v1/nodes" && break
+	[ $SECONDS -lt 90 ] || { echo "Giving up curl pinging after $SECONDS"; exit 1; }
+	sleep 1
+done
+echo "Connect to REST-API was successful"
+
+RET=0
+cd /golinstor-tests || exit 1
+logdir=/var/log/linstor
+mkdir -p "$logdir"
+for t in $(echo "$tests" | tr "," "\n"); do
+	ssh "root@$controller" "/golinstor-tests/${t}" -ginkgo.noColor -ginkgo.failFast > "${logdir}/${t}.log"
+	rt=$?
+	cat "${logdir}/${t}.log"
+
+	[ $rt = 0 ] && echo "Test $t: SUCCESS" || echo "Test $t: FAILED"
+	[ $RET = 0 ] && RET=$rt
+	sync
+done
+
+echo "golinstorts returning: $RET"
+exit $RET

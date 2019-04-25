@@ -74,7 +74,7 @@ getopts() {
 	# if the user did not touch the payloads, we can help and set one matching the suite
 	if [ "$PAYLOADS_SET" != "true" ]; then
 		case "$SUITE" in
-			linstor) PAYLOADS="lvm;networking;loaddrbd;linstor:combined;sshd;shell";;
+			linstor|golinstor) PAYLOADS="lvm;networking;loaddrbd;linstor:combined;sshd;shell";;
 			drbd);;
 		esac
 	fi
@@ -162,18 +162,18 @@ KERNELPKG=($OVERLAY/pkgs/drbd/$DISTNAME/amd64/$KERN_INITRAMFS/$KPREFIX*.${FORMAT
 [ "${#KERNELPKG[*]}" = "1" ] || die "KERNELPKG did not exactly match 1 file"
 UTILSPKG=($OVERLAY/pkgs/drbd-utils/$DISTNAME/amd64/drbd-utils*.${FORMAT})
 [ "${#UTILSPKG[*]}" = "1" ] || die "UTILSPKG did not exactly match 1 file"
+if [[ -n $SUITE ]]; then
+	TESTSPKG=($OVERLAY/pkgs/${SUITE}-tests/${SUITE}-tests.tar.gz)
+	[ "${#TESTSPKG[*]}" = "1" ] || die "TESTSPKG did not exactly match 1 file"
+fi
 case "$SUITE" in
 	drbd9)
-		TESTSPKG=($OVERLAY/pkgs/drbd9-tests/drbd9-tests.tar.gz)
-		[ "${#TESTSPKG[*]}" = "1" ] || die "TESTSPKG did not exactly match 1 file"
 		EXXEPKG=($OVERLAY/pkgs/exxe/$DISTNAME/amd64/exxe*.${FORMAT})
 		[ "${#EXXEPKG[*]}" = "1" ] || die "EXXEPKG did not exactly match 1 file"
 		LOGSCANPKG=($OVERLAY/pkgs/logscan/$DISTNAME/amd64/logscan*.${FORMAT})
 		[ "${#LOGSCANPKG[*]}" = "1" ] || die "LOGSCANPKG did not exactly match 1 file"
 		;;
-	linstor)
-		TESTSPKG=($OVERLAY/pkgs/linstor-tests/linstor-tests.tar.gz)
-		[ "${#TESTSPKG[*]}" = "1" ] || die "TESTSPKG did not exactly match 1 file"
+	linstor|golinstor)
 		LSCLIENTPKG=($OVERLAY/pkgs/linstor-client/$DISTNAME/amd64/linstor-client*.${FORMAT})
 		[ "${#LSCLIENTPKG[*]}" = "1" ] || die "LSCLIENTPKG did not exactly match 1 file"
 		LSAPIPYPKG=($OVERLAY/pkgs/python-linstor/$DISTNAME/amd64/python*-linstor*.${FORMAT})
@@ -219,7 +219,7 @@ clean_up() {
 			drbd9)
 				LOG_DIR="${PERVMROOTMNT}/drbd9-tests/tests/log/${JENKINS_TEST}-latest"
 				;;
-			linstor)
+			linstor|golinstor)
 				LOG_DIR="${PERVMROOTMNT}/var/log/linstor"
 				;;
 		esac
@@ -306,10 +306,10 @@ create_vm_base() {
 		[ -d "/etc/drbd.d" ] && echo "global { usage-count no; }" > /etc/drbd.d/global_common.conf
 		case "$SUITE" in
 			drbd9)
-				chroot "$PKGMNT" /bin/sh -c "tar xvf /drbd9-tests.tar.gz && cd /drbd9-tests && make && make install; rm -f /drbd9-tests.tar.gz"
+				chroot "$PKGMNT" /bin/sh -c "tar xvf /${SUITE}-tests.tar.gz && cd /${SUITE}-tests && make && make install; rm -f /${SUITE}-tests.tar.gz"
 				;;
-			linstor)
-				chroot "$PKGMNT" /bin/sh -c "tar xvf /linstor-tests.tar.gz && cd /linstor-tests; rm -f /linstor-tests.tar.gz"
+			linstor|golinstor)
+				chroot "$PKGMNT" /bin/sh -c "tar xvf /${SUITE}-tests.tar.gz && cd /${SUITE}-tests; rm -f /${SUITE}-tests.tar.gz"
 				;;
 		esac
 		# PS1="IN $PKGMNT# " chroot $PKGMNT /bin/bash -l -i
