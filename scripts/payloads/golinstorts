@@ -13,6 +13,45 @@ done
 
 [ -z $leader ] && { echo "Waiting for the leader... bye"; exit 0; }
 
+controller=$(echo "$undertest" | cut -f1 -d',')
+logdir=/var/log/linstor
+mkdir -p "$logdir"
+e2elogs="$logdir/e2e-test-logs"
+
+gen_toml() {
+	local f=$1
+	cat <<EOF > "${f}.tmp"
+ResourceDefinitionCreateLimit = 10
+
+[ClientConf]
+  Endpoint = "http://$controller:3370"
+  LogLevel = "debug"
+  LogFile = "$e2elogs"
+EOF
+
+	for n in $(echo "$undertest" | tr "," "\n"); do
+	nip=$(grep "$n" /etc/hosts | cut -f1 -d' ')
+		cat <<EOF >> "${f}.tmp"
+[[PreconfiguredNodes]]
+  Name = "$n"
+  Type = "Combined"
+
+  [[PreconfiguredNodes.NetInterfaces]]
+    Name = "default"
+    Address = "$nip"
+
+[[StoragePools]]
+  StoragePoolName = "scratch"
+  NodeName = "$n"
+  ProviderKind = "LVM"
+  [StoragePools.Props]
+    "StorDriver/LvmVg" = "scratch"
+EOF
+	done
+
+	mv "${f}.tmp" "${f}"
+}
+
 SECONDS=0
 echo "Pinging nodes under test"
 while : ; do
@@ -31,7 +70,6 @@ done
 echo "Ping was successful"
 
 echo "Connection to controller REST-API"
-controller=$(echo "$undertest" | cut -f1 -d',')
 SECONDS=0
 while : ; do
 	curl -s "http://${controller}:3370/v1/nodes" && break
@@ -40,12 +78,15 @@ while : ; do
 done
 echo "Connect to REST-API was successful"
 
+
 RET=0
 cd /golinstor-tests || exit 1
-logdir=/var/log/linstor
-mkdir -p "$logdir"
+e2efile=golinstor-e2e.toml
+gen_toml "/tmp/$e2efile"
+scp "/tmp/$e2efile" "root@${controller}:/golinstor-tests/"
+
 for t in $(echo "$tests" | tr "," "\n"); do
-	ssh "root@$controller" "/golinstor-tests/${t}" -ginkgo.noColor -ginkgo.failFast > "${logdir}/${t}.log"
+	ssh "root@$controller" "cd /golinstor-tests && ./${t}" -ginkgo.noColor -ginkgo.failFast > "${logdir}/${t}.log"
 	rt=$?
 	cat "${logdir}/${t}.log"
 
@@ -53,6 +94,7 @@ for t in $(echo "$tests" | tr "," "\n"); do
 	[ $RET = 0 ] && RET=$rt
 	sync
 done
+scp "root@${controller}:${e2elogs}" "${logdir}" && cat "${e2elogs}"
 
 echo "golinstorts returning: $RET"
 exit $RET
