@@ -75,7 +75,7 @@ getopts() {
 	if [ "$PAYLOADS_SET" != "true" ]; then
 		case "$SUITE" in
 			linstor|golinstor) PAYLOADS="lvm;networking;loaddrbd;linstor:combined;sshd;shell";;
-			drbd);;
+			drbd9|drbdproxy);;
 		esac
 	fi
 
@@ -156,22 +156,29 @@ LINUXPKG=$BASEMNT/kis/$LINUXPKGNAME
 OVERLAY=$BASEMNT/overlay
 
 UTILSPKG=""; EXXEPKG=""; LOGSCANPKG=""; TESTSPKG=""; KERNELPKG="";
-LSCLIENTPKG=""; LSAPIPYPKG=""; LSSERVERPKG="";
+LSCLIENTPKG=""; LSAPIPYPKG=""; LSSERVERPKG=""; PROXYPKG="";
 shopt -s nullglob
 KERNELPKG=($OVERLAY/pkgs/drbd/$DISTNAME/amd64/$KERN_INITRAMFS/$KPREFIX*.${FORMAT})
 [ "${#KERNELPKG[*]}" = "1" ] || die "KERNELPKG did not exactly match 1 file"
 UTILSPKG=($OVERLAY/pkgs/drbd-utils/$DISTNAME/amd64/drbd-utils*.${FORMAT})
 [ "${#UTILSPKG[*]}" = "1" ] || die "UTILSPKG did not exactly match 1 file"
+
+[[ $SUITE == drbdproxy ]] && TSUITE=drbd9 || TSUITE=$SUITE
 if [[ -n $SUITE ]]; then
-	TESTSPKG=($OVERLAY/pkgs/${SUITE}-tests/${SUITE}-tests.tar.gz)
+	TESTSPKG=($OVERLAY/pkgs/${TSUITE}-tests/${TSUITE}-tests.tar.gz)
 	[ "${#TESTSPKG[*]}" = "1" ] || die "TESTSPKG did not exactly match 1 file"
 fi
+
 case "$SUITE" in
-	drbd9)
+	drbd9|drbdproxy)
 		EXXEPKG=($OVERLAY/pkgs/exxe/$DISTNAME/amd64/exxe*.${FORMAT})
 		[ "${#EXXEPKG[*]}" = "1" ] || die "EXXEPKG did not exactly match 1 file"
 		LOGSCANPKG=($OVERLAY/pkgs/logscan/$DISTNAME/amd64/logscan*.${FORMAT})
 		[ "${#LOGSCANPKG[*]}" = "1" ] || die "LOGSCANPKG did not exactly match 1 file"
+		if [[ $SUITE == drbdproxy ]]; then
+			PROXYPKG=($OVERLAY/pkgs/drbd-proxy/$DISTNAME/amd64/drbd-proxy*.${FORMAT})
+			[ "${#PROXYPKG[*]}" = "1" ] || die "PROXYPKG did not exactly match 1 file"
+		fi
 		;;
 	linstor|golinstor)
 		LSCLIENTPKG=($OVERLAY/pkgs/linstor-client/$DISTNAME/amd64/linstor-client*.${FORMAT})
@@ -183,7 +190,7 @@ case "$SUITE" in
 		;;
 esac
 shopt -u nullglob
-ALLPKGS=(${UTILSPKG[0]} ${EXXEPKG[0]} ${LOGSCANPKG[0]} ${TESTSPKG[0]} ${KERNELPKG[0]} ${LSCLIENTPKG[0]} ${LSAPIPYPKG[0]} ${LSSERVERPKG[*]})
+ALLPKGS=(${UTILSPKG[0]} ${EXXEPKG[0]} ${LOGSCANPKG[0]} ${TESTSPKG[0]} ${KERNELPKG[0]} ${PROXYPKG[0]} ${LSCLIENTPKG[0]} ${LSAPIPYPKG[0]} ${LSSERVERPKG[*]})
 EXTRAPKGS=$OVERLAY/extra/$DISTNAME
 
 # RCK's version of double rot13:
@@ -216,7 +223,7 @@ fi
 clean_up() {
 	if [ -n "$JENKINS_DIR" ] && [ -n "$JENKINS_TEST" ]; then
 		case "$SUITE" in
-			drbd9)
+			drbd9|drbdproxy)
 				LOG_DIR="${PERVMROOTMNT}/drbd9-tests/tests/log/${JENKINS_TEST}-latest"
 				;;
 			linstor|golinstor)
@@ -305,11 +312,11 @@ create_vm_base() {
 		chroot "$PKGMNT" /bin/sh -c "no_initramfs=1 $INST_UTIL /*.${FORMAT}; rm -f /*.${FORMAT}"
 		[ -d "/etc/drbd.d" ] && echo "global { usage-count no; }" > /etc/drbd.d/global_common.conf
 		case "$SUITE" in
-			drbd9)
-				chroot "$PKGMNT" /bin/sh -c "tar xvf /${SUITE}-tests.tar.gz && cd /${SUITE}-tests && make && make install; rm -f /${SUITE}-tests.tar.gz"
+			drbd9|drbdproxy)
+				chroot "$PKGMNT" /bin/sh -c "tar xvf /${TSUITE}-tests.tar.gz && cd /${TSUITE}-tests && make && make install; rm -f /${SUITE}-tests.tar.gz"
 				;;
 			linstor|golinstor)
-				chroot "$PKGMNT" /bin/sh -c "tar xvf /${SUITE}-tests.tar.gz && cd /${SUITE}-tests; rm -f /${SUITE}-tests.tar.gz"
+				chroot "$PKGMNT" /bin/sh -c "tar xvf /${TSUITE}-tests.tar.gz && cd /${TSUITE}-tests; rm -f /${TSUITE}-tests.tar.gz"
 				;;
 		esac
 		# PS1="IN $PKGMNT# " chroot $PKGMNT /bin/bash -l -i
@@ -359,6 +366,8 @@ chmod +x "${PERVMROOTMNT}/sbin/init.sh"
 cp ./scripts/drbd9.res "${PERVMROOTMNT}/sbin/drbd9.res"
 chmod +x "${PERVMROOTMNT}/sbin/init.sh"
 cp ./scripts/ssh/id_rsa "${PERVMROOTMNT}/etc/ssh/ssh_host_rsa_key"
+
+[[ $SUITE == drbdproxy ]] && cp ./scripts/private/drbd-proxy.license "${PERVMROOTMNT}/etc/"
 
 mkdir -p "${PERVMROOTMNT}/root/.ssh"
 chmod 700 "${PERVMROOTMNT}/root/.ssh"
