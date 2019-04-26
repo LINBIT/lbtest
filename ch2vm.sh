@@ -93,7 +93,7 @@ NEEDS_CLEANUP=no
 SUICIDE=no
 
 VMNAME=vm-$NR
-IPOFFSET=200
+IPOFFSET=100
 IPL=$((IPOFFSET + NR))
 [ $IPL -lt 255 ] || die "IP for VM too large ($IPL)"
 IP=${IPBASE}.${IPL}
@@ -395,8 +395,8 @@ fi
 
 cp -r ./scripts/payloads "${PERVMROOTMNT}/"
 
-for i in $(seq 1 54); do
-	echo "${IPBASE}.$((i + IPOFFSET)) vm-$i"  >> "${PERVMROOTMNT}/etc/hosts"
+for (( i=IPOFFSET+1; i<255; i++ )); do
+	echo "${IPBASE}.${i} vm-$((i-IPOFFSET))"  >> "${PERVMROOTMNT}/etc/hosts"
 done
 
 [ "$SUICIDE" = "yes" ] && exit 1
