@@ -1,0 +1,4 @@
+#!/bin/bash
+
+mkdir -p /var/run/drbd-proxy
+drbd-proxy || /sbin/drbd-proxy

@@ -11,7 +11,7 @@ RC=~/.ch2vmrc
 # VARIABLE SETUP
 DISTNAME="$dflt_dist"; KERN_INITRAMFS="$dflt_kernel"; NR=""; HELP=""; HASH=""; UUID=""; MEMORY="768M"; NR_CPU="4";
 JENKINS_DIR=""; JENKINS_TEST="";
-PAYLOADS="lvm;networking;loaddrbd;sshd;shell"; PAYLOADS_SET=""; SUITE="drbd9";
+PAYLOADS=""; SUITE="drbd9";
 
 : "${TMP:=/tmp}"
 : "${NFSSERVER:=10.43.57.42}"
@@ -63,7 +63,7 @@ getopts() {
 			--smp ) NR_CPU="$2"; shift; shift ;;
 			-k | --kernel ) KERN_INITRAMFS="$2"; shift; shift ;;
 			-m | --mem ) MEMORY="$2"; shift; shift ;;
-			-p | --payloads ) PAYLOADS="$2"; PAYLOADS_SET="true"; shift; shift ;;
+			-p | --payloads ) PAYLOADS="$2"; shift; shift ;;
 			-s | --suite ) SUITE="$2"; shift; shift ;;
 			-v | --vm-nr ) NR="$2"; shift; shift ;;
 			-- ) shift; break ;;
@@ -71,12 +71,15 @@ getopts() {
 		esac
 	done
 
-	# if the user did not touch the payloads, we can help and set one matching the suite
-	if [ "$PAYLOADS_SET" != "true" ]; then
+	# if the user did not touch the payloads, we can help and set one matching the suite/a general useful one
+	if [ "$PAYLOADS" = "" ]; then
+		PAYLOADS="lvm;networking;loaddrbd"
 		case "$SUITE" in
-			linstor|golinstor) PAYLOADS="lvm;networking;loaddrbd;linstor:combined;sshd;shell";;
-			drbd9|drbdproxy);;
+			linstor|golinstor) PAYLOADS="${PAYLOADS};linstor:combined";;
+			drbdproxy) PAYLOADS="${PAYLOADS};drbdproxy";;
+			drbd9);;
 		esac
+		PAYLOADS="${PAYLOADS};sshd;shell"
 	fi
 
 	[ "$HELP" = "true" ] && help 0
