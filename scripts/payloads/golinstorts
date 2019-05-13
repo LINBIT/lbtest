@@ -32,11 +32,11 @@ EOF
 	for n in $(echo "$undertest" | tr "," "\n"); do
 	nip=$(grep "$n" /etc/hosts | cut -f1 -d' ')
 		cat <<EOF >> "${f}.tmp"
-[[PreconfiguredNodes]]
+[[Nodes]]
   Name = "$n"
   Type = "Combined"
 
-  [[PreconfiguredNodes.NetInterfaces]]
+  [[Nodes.NetInterfaces]]
     Name = "default"
     Address = "$nip"
 
@@ -84,6 +84,7 @@ cd /golinstor-tests || exit 1
 e2efile=golinstor-e2e.toml
 gen_toml "/tmp/$e2efile"
 scp "/tmp/$e2efile" "root@${controller}:/golinstor-tests/"
+cat "/tmp/$e2efile"
 
 for t in $(echo "$tests" | tr "," "\n"); do
 	ssh "root@$controller" "cd /golinstor-tests && ./${t}" -ginkgo.noColor -ginkgo.failFast > "${logdir}/${t}.log"
