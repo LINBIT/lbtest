@@ -233,7 +233,7 @@ clean_up() {
 				LOG_DIR="${PERVMROOTMNT}/var/log/linstor"
 				;;
 		esac
-		(cd "$LOG_DIR" && mkdir -p "${JENKINS_DIR}" && tar -czf "${JENKINS_DIR}/logs-${VMNAME}.tar.gz" * )
+		mkdir -p "${JENKINS_DIR}/${VMNAME}" && cp -Lvr "${LOG_DIR}/"* "${JENKINS_DIR}/${VMNAME}/"
 	fi
 
 	[ -f "${PERVMROOTMNT}/.resume" ] && NEEDS_CLEANUP=no
