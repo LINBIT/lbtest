@@ -39,13 +39,16 @@ EOF
   [[Nodes.NetInterfaces]]
     Name = "default"
     Address = "$nip"
+    SatellitePort = 3366
+    SatelliteEncryptionType = "plain"
 
 [[StoragePools]]
   StoragePoolName = "scratch"
   NodeName = "$n"
-  ProviderKind = "LVM"
+  ProviderKind = "LVM_THIN"
   [StoragePools.Props]
     "StorDriver/LvmVg" = "scratch"
+    "StorDriver/ThinPool" = "thin"
 EOF
 	done
 
