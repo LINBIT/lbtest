@@ -73,7 +73,7 @@ getopts() {
 
 	# if the user did not touch the payloads, we can help and set one matching the suite/a general useful one
 	if [ "$PAYLOADS" = "" ]; then
-		PAYLOADS="lvm;networking;loaddrbd"
+		PAYLOADS="lvm:thinpercent=20;networking;loaddrbd"
 		case "$SUITE" in
 			linstor|golinstor) PAYLOADS="${PAYLOADS};linstor:combined";;
 			drbdproxy) PAYLOADS="${PAYLOADS};drbdproxy";;

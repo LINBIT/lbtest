@@ -1,11 +1,13 @@
 #!/bin/bash
 
 blockdevice=""
+thinpercent=""
 
 ARGS=$(echo $1 | tr ":" "\n")
 for o in $ARGS; do
 	case "$o" in
 		bd=*) blockdevice="true" ;;
+		thinpercent=*) export $o ;;
 	esac
 done
 
@@ -32,6 +34,7 @@ create_vg() {
 	if ! vgs | grep "$VGname"; then
 		pvcreate "$D"
 		vgcreate "$VGname" "$D" # --physicalextentsize=8k
+		[ -n "$thinpercent" ] && lvcreate -l "$thinpercent"%FREE --thinpool thin scratch
 	fi
 	vgchange -ay
 }
