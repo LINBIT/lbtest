@@ -21,7 +21,7 @@ e2elogs="$logdir/e2e-test-logs"
 gen_toml() {
 	local f=$1
 	cat <<EOF > "${f}.tmp"
-ResourceDefinitionCreateLimit = 10
+ResourceDefinitionCreateLimit = 5
 
 [ClientConf]
   Endpoint = "http://$controller:3370"
