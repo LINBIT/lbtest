@@ -1,7 +1,7 @@
 #!/bin/bash
+export LANG=C
 
 ARGS=$(echo $1 | tr ":" "\n")
-
 for o in $ARGS; do
 	case "$o" in
 		leader) leader="true" ;;
