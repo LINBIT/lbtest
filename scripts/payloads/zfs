@@ -39,10 +39,10 @@ mkdir -p /run/lock
 
 # not in /tmp, because that is a limited-size tmpfs
 if [ -z "$blockdevice" ]; then
-	echo "Creating LV from loopback file"
+	echo "Creating ZFS from loopback file"
 	modprobe loop
-	create_vg scratch /var/lib/my-vg file
+	create_vg scratch-zfs /var/lib/my-vg file
 else
-	echo "Creating LV from blockdevice"
-	create_vg scratch /dev/sda blockdevice
+	echo "Creating ZFS from blockdevice"
+	create_vg scratch-zfs /dev/sda blockdevice
 fi
