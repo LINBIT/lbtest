@@ -1,0 +1,52 @@
+#!/bin/bash
+
+ARGS=$(echo "$1" | tr ":" "\n")
+
+mariadb=no; postgresql=no
+for o in $ARGS; do
+	case "$o" in
+		mariadb) mariadb="yes" ;;
+		postgres) postgresql="yes";;
+	esac
+done
+
+echo "here $ARGS, $mariadb, $postgresql"
+
+if [ "$mariadb" = "yes" ]; then
+	/usr/libexec/mariadb-prepare-db-dir mariadb.service
+	mkdir -p /var/run/mariadb
+	chmod 777 /var/run/mariadb
+	/usr/bin/mysqld_safe --basedir=/usr &
+	MAINPID=$(cat /run/mariadb/mariadb.pid)
+	/usr/libexec/mariadb-wait-ready $MAINPID
+fi
+
+if [ "$postgresql" = "yes" ]; then
+	[ $LB_DIST = "rhel7.0" ] && echo 'postgres:x:26:26:PostgreSQL Server:/var/lib/pgsql:/bin/bash'>>/etc/passwd
+
+	PGPORT=5432
+	PGDATA=/var/lib/pgsql/data
+	FAKEDIR=/fake/bin/postgresql
+
+	mkdir -p "$FAKEDIR"
+cat << EOF> "$FAKEDIR"/systemctl
+#!/bin/bash
+
+echo Environment=PGPORT=$PGPORT
+echo Environment=PGDATA=$PGDATA
+EOF
+
+	PATH=/usr/pgsql-9.4/bin:$PATH
+	chmod +x "$FAKEDIR"/systemctl
+	PATH=$FAKEDIR:$PATH postgresql94-setup initdb
+	postgresql94-check-db-dir ${PGDATA}
+	mkdir -p /var/run/postgresql
+	chown postgres:root /var/run/postgresql
+	chmod 700 /var/run/postgresql
+	[ "$LB_DIST" = "ubuntu-xenial" ] && runuser -g ssl-cert postgres -s /bin/bash -c '/usr/bin/pg_ctlcluster --skip-systemctl-redirect 9.5-main start'
+	[ "$LB_DIST" = "ubuntu-bionic" ] && runuser -g ssl-cert postgres -s /bin/bash -c '/usr/bin/pg_ctlcluster --skip-systemctl-redirect 10-main start'
+	if [ "$LB_DIST" = "rhel7.0" ]; then
+		sed -e "s/ident/md5/g" -i /var/lib/pgsql/data/pg_hba.conf
+		su postgres -c "/usr/pgsql-9.4/bin/pg_ctl start -D ${PGDATA} -s -o \"-p ${PGPORT}\" -w -t 300"
+	fi
+fi
