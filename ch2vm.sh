@@ -75,7 +75,7 @@ getopts() {
 	if [ "$PAYLOADS" = "" ]; then
 		PAYLOADS="lvm:thinpercent=20;networking;loaddrbd"
 		case "$SUITE" in
-			linstor|golinstor) PAYLOADS="${PAYLOADS};linstor:combined";;
+			linstor|golinstor) PAYLOADS="${PAYLOADS};nvme;linstor:combined";;
 			drbdproxy) PAYLOADS="${PAYLOADS};drbdproxy";;
 			drbd9);;
 		esac
@@ -285,7 +285,8 @@ create_vm_base() {
 				# PS1="IN $STATICMNT# " chroot $STATICMNT /bin/bash -l -i
 				;;
 			"deb")
-				DEBPKG="rsyslog xfsprogs openssh-server iputils-ping iproute2 kmod fio iptables lvm2 thin-provisioning-tools default-jre-headless python-natsort python-protobuf cryptsetup $STATICEXTRA"
+				DEBPKG="rsyslog nvme-cli xfsprogs openssh-server iputils-ping iproute2 kmod fio iptables lvm2 thin-provisioning-tools default-jre-headless python-natsort python-protobuf cryptsetup $STATICEXTRA"
+				[[ $DISTNAME == ubuntu-* ]] && DEBPKG="$DEBPKG linux-modules-extra-${KERN_INITRAMFS}-generic"
 				chroot "$STATICMNT" /bin/sh -c "apt-get -y update && apt-get install -yf && apt-get -y install $DEBPKG"
 				chroot "$STATICMNT" /bin/sh -c "apt-get -y install vim-nox"
 				;;

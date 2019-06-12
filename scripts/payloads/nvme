@@ -1,0 +1,4 @@
+#!/bin/bash
+
+modprobe rdma_rxe && echo eth0 > /sys/module/rdma_rxe/parameters/add
+mount -t configfs none /sys/kernel/config || true
