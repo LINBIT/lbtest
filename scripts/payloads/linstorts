@@ -50,6 +50,14 @@ for t in $(echo $tests | tr "," "\n"); do
 	sync
 done
 
+for n in $(echo $undertest | tr "," "\n"); do
+	echo "killall java"
+	ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $n killall java
+	ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $n sync
+done
+
+sleep 1
+
 echo "linstorts returning: $RET"
 exit $RET
 
