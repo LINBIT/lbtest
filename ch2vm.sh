@@ -307,7 +307,7 @@ create_vm_base() {
 				;;
 			"deb")
 				DEBPKG="rsyslog nvme-cli xfsprogs openssh-server iputils-ping iproute2 kmod fio iptables lvm2 thin-provisioning-tools default-jre-headless python-natsort python-protobuf cryptsetup $STATICEXTRA"
-				[[ $DISTNAME == ubuntu-* ]] && DEBPKG="$DEBPKG linux-modules-extra-${KERN_INITRAMFS}-generic"
+				[[ $DISTNAME == ubuntu-* ]] && [[ $DISTNAME != ubuntu-xenial ]] && DEBPKG="$DEBPKG linux-modules-extra-${KERN_INITRAMFS}-generic"
 				chroot "$STATICMNT" /bin/sh -c "apt-get -y update && apt-get install -yf && apt-get -y install $DEBPKG"
 				chroot "$STATICMNT" /bin/sh -c "apt-get -y install vim-nox"
 				;;
