@@ -314,7 +314,6 @@ create_vm_base() {
 		mount --bind /dev  "${PKGMNT}/dev"
 		if echo "$INST_UTIL" | grep -q "yum"; then INST_UTIL="$INST_UTIL -C"; fi
 		chroot "$PKGMNT" /bin/sh -c "no_initramfs=1 $INST_UTIL /*.${FORMAT}; rm -f /*.${FORMAT}"
-		[ -d "/etc/drbd.d" ] && echo "global { usage-count no; }" > /etc/drbd.d/global_common.conf
 		case "$SUITE" in
 			drbd9|drbdproxy)
 				chroot "$PKGMNT" /bin/sh -c "tar xvf /${TSUITE}-tests.tar.gz && cd /${TSUITE}-tests && make && make install; rm -f /${SUITE}-tests.tar.gz"

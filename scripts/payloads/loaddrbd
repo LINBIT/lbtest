@@ -1,5 +1,6 @@
 #!/bin/sh
 
+[ -d "/etc/drbd.d" ] && echo "global { usage-count no; }" > /etc/drbd.d/global_common.conf
 modprobe libcrc32c
 modprobe drbd
 modprobe drbd_transport_tcp
