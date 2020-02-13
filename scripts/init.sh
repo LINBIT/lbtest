@@ -32,6 +32,7 @@ fi
 echo "#########################"
 echo "### STARTING PAYLOADS ###"
 echo "#########################"
+cd /
 for p in $(echo $LB_PAYLOADS | tr ";" "\n"); do
 	[ "$p" = "none" ] && continue
 	[ "$p" = "resume" ] && { touch /.resume; continue; }
