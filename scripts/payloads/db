@@ -2,15 +2,16 @@
 
 ARGS=$(echo "$1" | tr ":" "\n")
 
-mariadb=no; postgresql=no
+mariadb=no; postgresql=no; etcd=no;
 for o in $ARGS; do
 	case "$o" in
 		mariadb) mariadb="yes" ;;
 		postgres) postgresql="yes";;
+		etcd) etcd="yes";;
 	esac
 done
 
-echo "here $ARGS, $mariadb, $postgresql"
+echo "here $ARGS, $mariadb, $postgresql, $etcd"
 
 if [ "$mariadb" = "yes" ]; then
 	/usr/libexec/mariadb-prepare-db-dir mariadb.service
@@ -49,4 +50,11 @@ EOF
 		sed -e "s/ident/md5/g" -i /var/lib/pgsql/data/pg_hba.conf
 		su postgres -c "/usr/pgsql-9.4/bin/pg_ctl start -D ${PGDATA} -s -o \"-p ${PGPORT}\" -w -t 300"
 	fi
+fi
+
+if [ "$etcd" = "yes" ]; then
+	/etcd.bin --version
+	# /etcd.bin --max-txn-ops 1024 &
+	/etcd.bin &
+	ln -s /etcdctl.bin /usr/bin/etcdctl
 fi
