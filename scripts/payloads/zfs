@@ -1,11 +1,13 @@
 #!/bin/bash
 
 blockdevice=""
+ramdisk=""
 
 ARGS=$(echo $1 | tr ":" "\n")
 for o in $ARGS; do
 	case "$o" in
 		bd=*) blockdevice="true" ;;
+		ramdisk=*) export $o ;;
 	esac
 done
 
@@ -39,9 +41,15 @@ mkdir -p /run/lock
 
 # not in /tmp, because that is a limited-size tmpfs
 if [ -z "$blockdevice" ]; then
-	echo "Creating ZFS from loopback file"
-	modprobe loop
-	create_vg scratch-zfs /var/lib/my-vg file
+	if [ -n "$ramdisk" ]; then
+		echo "Creating LV from ram disk"
+		modprobe brd rd_nr=1 rd_size="$(numfmt --from=auto --to-unit=K "$ramdisk")"
+		create_vg scratch-zfs /dev/ram0 blockdevice
+	else
+		echo "Creating ZFS from loopback file"
+		modprobe loop
+		create_vg scratch-zfs /var/lib/my-vg file
+	fi
 else
 	echo "Creating ZFS from blockdevice"
 	create_vg scratch-zfs /dev/sda blockdevice

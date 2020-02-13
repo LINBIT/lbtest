@@ -1,6 +1,7 @@
 #!/bin/bash
 
 blockdevice=""
+ramdisk=""
 thinpercent=""
 
 ARGS=$(echo $1 | tr ":" "\n")
@@ -8,6 +9,7 @@ for o in $ARGS; do
 	case "$o" in
 		bd=*) blockdevice="true" ;;
 		thinpercent=*) export $o ;;
+		ramdisk=*) export $o ;;
 	esac
 done
 
@@ -44,10 +46,16 @@ create_vg() {
 [ "$LB_DIST" = "rhel6.0" ] && { modprobe dm-mod; sed -i "s/use_lvmetad/use_lvmetad=1 #/" /etc/lvm/lvm.conf; }
 mkdir -p /run/lvm && /sbin/lvmetad
 if [ -z "$blockdevice" ]; then
-	echo "Creating LV from loopback file"
-	modprobe loop
-	create_vg scratch /var/lib/my-vg file
+	if [ -n "$ramdisk" ]; then
+		echo "Creating LV from ram disk"
+		modprobe brd rd_nr=1 rd_size="$(numfmt --from=auto --to-unit=K "$ramdisk")"
+		create_vg scratch /dev/ram0 blockdevice
+	else
+		echo "Creating LV from loopback file"
+		modprobe loop
+		create_vg scratch /var/lib/my-vg file
+	fi
 else
-	echo "Creating LV from blockdevice"
+	echo "Creating LV from passed in blockdevice"
 	create_vg scratch /dev/sda blockdevice
 fi
