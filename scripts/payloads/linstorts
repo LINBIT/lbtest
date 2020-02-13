@@ -2,6 +2,7 @@
 export LANG=C
 
 ARGS=$(echo $1 | tr ":" "\n")
+env=''
 for o in $ARGS; do
 	case "$o" in
 		leader) leader="true" ;;
@@ -9,6 +10,10 @@ for o in $ARGS; do
 		undertest=*) export $o ;;
 		env=*) export $o ;;
 	esac
+done
+
+for n in $(echo $env | tr "," "\n"); do
+	export "$n"
 done
 
 [ -z $leader ] && { echo "Waiting for the leader... bye"; exit 0; }
@@ -32,17 +37,12 @@ while : ; do
 done
 echo "Ping was successful"
 
-declare -A ENV_MAP
-for n in $(echo $env | tr "," "\n"); do
-	IFS='=' read -ra KEY_VAL_ARR <<< "$env"
-	ENV_MAP[${KEY_VAL_ARR[0]}]=${KEY_VAL_ARR[1]}
-done
 
 RET=0
 cd /linstor-tests || exit 1
 for t in $(echo $tests | tr "," "\n"); do
 # potentially dangerous, but we are in a VM anyways ;-)
-	./${t}.py --interface ${ENV_MAP[API_INTERFACE]} $(echo $undertest | tr "," " ")
+	./${t}.py --interface "$API_INTERFACE" $(echo $undertest | tr "," " ")
 	rt=$?
 
 	[ $rt = 0 ] && echo "Test $t: SUCCESS" || echo "Test $t: FAILED"
