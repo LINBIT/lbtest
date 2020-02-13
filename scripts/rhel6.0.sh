@@ -1,1 +1,1 @@
-STATICEXTRA="python-argparse"
+STATICEXTRA="python-argparse python34"
