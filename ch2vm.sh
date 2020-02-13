@@ -9,7 +9,7 @@ RC=~/.ch2vmrc
 [ -f "$RC" ] && { echo "Loading config: $RC"; source "$RC"; }
 
 # VARIABLE SETUP
-DISTNAME="$dflt_dist"; KERN_INITRAMFS="$dflt_kernel"; NR=""; HELP=""; HASH=""; UUID=""; MEMORY="768M"; NR_CPU="4";
+DISTNAME="$dflt_dist"; KERN_INITRAMFS="$dflt_kernel"; NR=""; HELP=""; HASH=""; UUID=""; DRY=""; MEMORY="768M"; NR_CPU="4";
 JENKINS_DIR=""; JENKINS_TEST="";
 PAYLOADS=""; SUITE="drbd9";
 
@@ -38,6 +38,7 @@ $(basename $0)
         --smp: Number of CPUs (default: "$NR_CPU")
    -v | --vm-nr: Number of VM (uint, e.g., 23)
         --uuid: Use this as per-VM UUID (default: random)
+        --dry-run: Don't actually execute, just print info about snapshots,...
 
 '--jdir' and '--jtest' are usually passed by 'vmshed'
 EOF
@@ -47,7 +48,7 @@ EOF
 getopts() {
 	[ "$(id -u)" = "0" ] || die "Run this script as root"
 
-	OPTS=$(getopt -o d:hk:m:p:s:v: --long distribution:,help,hash:,uuid:,jdir:,jtest:,kernel:,mem:,payloads:,smp:,suite:,vm-nr: -n 'parse-options' -- "$@")
+	OPTS=$(getopt -o d:hk:m:p:s:v: --long distribution:,dry-run,help,hash:,uuid:,jdir:,jtest:,kernel:,mem:,payloads:,smp:,suite:,vm-nr: -n 'parse-options' -- "$@")
 	[ $? = 0 ] || die "Failed parsing options."
 
 	eval set -- "$OPTS"
@@ -56,6 +57,7 @@ getopts() {
 		case "$1" in
 			-d | --distribution ) DISTNAME="$2"; shift; shift ;;
 			-h | --help ) HELP=true; shift ;;
+			--dry-run ) DRY=true; shift ;;
 			--jdir ) JENKINS_DIR="$2"; shift; shift ;;
 			--jtest ) JENKINS_TEST="$2"; shift; shift ;;
 			--hash ) HASH="$2"; shift; shift ;;
@@ -222,6 +224,24 @@ PKGSNAP=${PKGZFS}@pkgs
 if ! zfs list -t snapshot "$PKGSNAP" && [ -n "$HASH" ]; then
 	die "pkg snapshot with given hash ($HASH) does not exist"
 fi
+
+# here we have all the info that we need for dry-run
+print_dry() {
+	clear
+	echo "checking for $STATICSNAP"
+	echo "  if !exists, clone $CHROOTSNAP -> $STATICZFS"
+	echo
+	echo "checking for $PKGSNAP"
+	echo "  if !exists, clone $STATICSNAP -> $PKGZFS"
+	echo
+	echo "to regenerate from @rootfs snapshot:"
+	echo "  zfs destroy -R $PKGSNAP"
+	echo "  zfs destroy -R $PKGZFS"
+	echo "  zfs destroy -R $STATICSNAP"
+	echo "  zfs destroy -R $STATICZFS"
+	exit 0
+}
+[ "$DRY" = true ] && print_dry
 
 clean_up() {
 	if [ -n "$JENKINS_DIR" ] && [ -n "$JENKINS_TEST" ]; then
