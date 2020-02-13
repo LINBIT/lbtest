@@ -8,6 +8,7 @@ for o in $ARGS; do
 		controller) lscont="true" ;;
 		combined) lscont="true"; lssat="true" ;;
 		satellite) lssat="true" ;;
+		etcd) etcd="true" ;;
 	esac
 done
 
@@ -21,9 +22,12 @@ sed -i /usr/share/linstor-server/lib/conf/logback.xml \
 [ -z "$lscont" ] && [ -z "$lssat" ] && lssat="true"
 
 if [ "$lscont" = "true" ]; then
-	Controller -c /etc/linstor -l /var/log/linstor/controller --rest-bind=0.0.0.0:3370 &
+	if [ "$etcd" = "true" ]; then
+		printf '[db]\n  connection_url = "etcd://localhost"\n' > /etc/linstor/linstor.toml
+	fi
+	Controller -c /etc/linstor -l /var/log/linstor/controller --rest-bind=0.0.0.0:3370 --log-level-linstor TRACE &
 fi
 
 if [ "$lssat" = "true" ]; then
-	Satellite -l /var/log/linstor/satellite &
+	Satellite -l /var/log/linstor/satellite --log-level-linstor TRACE &
 fi
