@@ -292,6 +292,7 @@ create_vm_base() {
 		if [ -d "$EXTRAPKGS" ]; then
 			cp "$EXTRAPKGS"/*.${FORMAT} "${STATICMNT}/"
 			chroot "$STATICMNT" /bin/sh -c "$INST_UTIL /*.${FORMAT}; rm -f /*.${FORMAT}"
+			cp "$EXTRAPKGS"/*.bin "${STATICMNT}/"
 		fi
 
 		# static dependencies
